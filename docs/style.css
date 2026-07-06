@@ -63,6 +63,7 @@ body {
 }
 
 .printer-assembly {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -70,28 +71,23 @@ body {
 }
 
 .receipt-slot {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
   width: 100%;
-  height: 0;
+  height: var(--receipt-h, auto);
   overflow: hidden;
+  pointer-events: none;
 }
 
 .receipt-scroll {
-  will-change: transform;
   transform: translate3d(0, 100%, 0);
+  backface-visibility: hidden;
 }
 
-.printing .receipt-slot {
-  animation: slot-open 3.2s cubic-bezier(0.33, 1, 0.22, 1) forwards;
-}
-
-.printing .receipt-scroll {
-  animation: paper-feed 3.2s cubic-bezier(0.33, 1, 0.22, 1) forwards;
-}
-
-@keyframes slot-open {
-  to {
-    height: var(--receipt-h, 720px);
-  }
+.receipt-scroll.is-feeding {
+  animation: paper-feed 2.6s cubic-bezier(0.33, 1, 0.22, 1) forwards;
+  will-change: transform;
 }
 
 @keyframes paper-feed {
@@ -104,27 +100,24 @@ body {
   }
 }
 
-.motion-off .receipt-slot {
-  height: var(--receipt-h, auto);
-  animation: none;
-}
-
 .motion-off .receipt-scroll {
   transform: none;
   animation: none;
 }
 
-.receipt-floating .receipt-scroll {
-  position: fixed;
-  z-index: 20;
-  margin: 0;
-  animation:
-    receipt-lift 1.15s cubic-bezier(0.22, 1.05, 0.36, 1) forwards,
-    receipt-sway 5s ease-in-out 1.15s infinite;
+.receipt-scroll.is-floating {
+  animation: receipt-lift 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   transform-origin: center center;
+  will-change: transform;
 }
 
-.receipt-floating .receipt {
+.receipt-scroll.is-swaying {
+  animation: receipt-sway 4.5s ease-in-out infinite;
+  transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
+}
+
+.receipt-scroll.is-floating .receipt,
+.receipt-scroll.is-swaying .receipt {
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 32px 80px rgba(0, 0, 0, 0.55);
@@ -135,8 +128,8 @@ body {
     transform: translate3d(0, 0, 0) rotate(-1deg);
   }
 
-  10% {
-    transform: translate3d(0, -14px, 0) rotate(-2deg);
+  12% {
+    transform: translate3d(0, -12px, 0) rotate(-2deg);
   }
 
   100% {
@@ -150,14 +143,9 @@ body {
     transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
   }
 
-  33% {
-    transform: translate3d(calc(var(--lift-x, 0px) + 6px), calc(var(--lift-y, 0px) - 7px), 0)
-      rotate(-1.5deg);
-  }
-
-  66% {
-    transform: translate3d(calc(var(--lift-x, 0px) - 5px), calc(var(--lift-y, 0px) + 5px), 0)
-      rotate(-4.8deg);
+  50% {
+    transform: translate3d(calc(var(--lift-x, 0px) + 5px), calc(var(--lift-y, 0px) - 6px), 0)
+      rotate(-1.8deg);
   }
 }
 
@@ -487,18 +475,14 @@ body {
     transition: none;
   }
 
-  .receipt-slot {
-    height: var(--receipt-h, auto);
-    animation: none;
-  }
-
   .receipt-scroll {
     transform: none;
     animation: none;
+    will-change: auto;
   }
 
-  .receipt-floating .receipt-scroll {
-    position: static;
+  .receipt-scroll.is-floating,
+  .receipt-scroll.is-swaying {
     animation: none;
   }
 

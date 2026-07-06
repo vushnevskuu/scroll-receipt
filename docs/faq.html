@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FAQ — Scroll Receipt</title>
+    <meta
+      name="description"
+      content="Frequently asked questions about Scroll Receipt: what it tracks, privacy, email receipts, and browser-only scope."
+    />
+    <link rel="canonical" href="https://vushnevskuu.github.io/scroll-receipt/faq.html" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What does Scroll Receipt track?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Scroll Receipt tracks confirmed playback time on Instagram Reels, YouTube Shorts, and TikTok inside Chromium browsers. It counts time only when the video is playing, visible, and the tab is focused."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Scroll Receipt track mobile apps?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Scroll Receipt tracks browser activity only. It does not monitor the native Instagram, YouTube, or TikTok apps on your phone."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is my data private?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. By default all data stays in chrome.storage.local on your device. Optional email sync sends only daily totals (seconds and view counts per platform), never video URLs or titles."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "When do daily email receipts arrive?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "By default at 00:05 in your local timezone, covering the previous calendar day. You can change the time in extension settings after verifying your email."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I install Scroll Receipt?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Download the zip from the homepage, unzip it, open chrome://extensions, enable Developer mode, click Load unpacked, and select the unzipped folder."
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main class="stage stage-static" aria-labelledby="faq-title">
+      <article class="receipt">
+        <div class="receipt-edge receipt-edge-top" aria-hidden="true"></div>
+
+        <header class="receipt-head">
+          <p class="receipt-meta">SUPPORT RECEIPT</p>
+          <h1 id="faq-title">FAQ</h1>
+          <p class="receipt-sub">Scroll Receipt</p>
+        </header>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block" id="faq">
+          <dl class="faq">
+            <div>
+              <dt>What does it track?</dt>
+              <dd>
+                Confirmed playback on Reels, Shorts, and TikTok in your browser — not background
+                tabs or idle time.
+              </dd>
+            </div>
+            <div>
+              <dt>Does it work on my phone?</dt>
+              <dd>No. Browser only. Native mobile apps are not tracked.</dd>
+            </div>
+            <div>
+              <dt>Is my data private?</dt>
+              <dd>
+                By default everything stays on your device. Email sync sends only daily totals,
+                never video URLs or titles.
+              </dd>
+            </div>
+            <div>
+              <dt>When does the email receipt arrive?</dt>
+              <dd>
+                Default: 00:05 local time, for yesterday. Enable in Options after email
+                verification.
+              </dd>
+            </div>
+            <div>
+              <dt>Can I pause or delete my data?</dt>
+              <dd>Yes — pause tracking, export JSON, or delete everything from Settings.</dd>
+            </div>
+            <div>
+              <dt>How do I install?</dt>
+              <dd>See the <a class="link-accent" href="install.html">install guide</a>.</dd>
+            </div>
+          </dl>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block block-actions">
+          <a class="btn btn-ghost" href="./">← Home</a>
+          <a class="btn btn-ghost" href="install.html">Install guide</a>
+        </section>
+
+        <div class="receipt-edge receipt-edge-bottom" aria-hidden="true"></div>
+      </article>
+    </main>
+  </body>
+</html>

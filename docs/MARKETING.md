@@ -7,7 +7,10 @@ Configured using [marketingskills](https://github.com/coreyhaines31/marketingski
 | Asset | Purpose |
 |-------|---------|
 | `.agents/product-marketing.md` | Positioning, audience, voice, objections |
-| `docs/index.html` | On-page SEO, OG/Twitter, FAQ, CRO copy |
+| `docs/index.html` | Minimal receipt + print animation |
+| `docs/about.html` | Product copy, benefits |
+| `docs/install.html` | Install steps + HowTo schema |
+| `docs/faq.html` | FAQ + FAQPage schema |
 | `docs/privacy.html` | Trust + indexable policy page |
 | `docs/robots.txt` | Crawl rules + sitemap pointer |
 | `docs/sitemap.xml` | Home + privacy |

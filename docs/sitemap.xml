@@ -7,6 +7,24 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://vushnevskuu.github.io/scroll-receipt/about.html</loc>
+    <lastmod>2026-07-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vushnevskuu.github.io/scroll-receipt/install.html</loc>
+    <lastmod>2026-07-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vushnevskuu.github.io/scroll-receipt/faq.html</loc>
+    <lastmod>2026-07-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://vushnevskuu.github.io/scroll-receipt/privacy.html</loc>
     <lastmod>2026-07-06</lastmod>
     <changefreq>yearly</changefreq>

@@ -7,6 +7,9 @@ Scroll Receipt is a free browser extension that tracks confirmed playback on Ins
 ## Product
 
 - [Homepage](https://vushnevskuu.github.io/scroll-receipt/)
+- [About](https://vushnevskuu.github.io/scroll-receipt/about.html)
+- [Install guide](https://vushnevskuu.github.io/scroll-receipt/install.html)
+- [FAQ](https://vushnevskuu.github.io/scroll-receipt/faq.html)
 - [Download Chrome extension (zip)](https://vushnevskuu.github.io/scroll-receipt/scroll-receipt-2.0.0-chrome.zip)
 - [Privacy policy](https://vushnevskuu.github.io/scroll-receipt/privacy.html)
 - [Source code](https://github.com/vushnevskuu/scroll-receipt)

@@ -8,15 +8,10 @@
       name="description"
       content="Track real watch time on Instagram Reels, YouTube Shorts, and TikTok in Chrome. Get a daily email receipt. Free extension — data stays on your device."
     />
-    <meta
-      name="keywords"
-      content="YouTube Shorts tracker, Instagram Reels time, TikTok browser tracker, screen time extension, digital wellbeing, attention receipt"
-    />
     <link rel="canonical" href="https://vushnevskuu.github.io/scroll-receipt/" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#1c1b18" />
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://vushnevskuu.github.io/scroll-receipt/" />
     <meta property="og:title" content="Scroll Receipt — Daily Receipt for Short Video Time" />
@@ -25,10 +20,7 @@
       content="Measure confirmed playback on Reels, Shorts, and TikTok in your browser. Optional daily email receipts. Free for Chrome."
     />
     <meta property="og:image" content="https://vushnevskuu.github.io/scroll-receipt/og-image.svg" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:site_name" content="Scroll Receipt" />
 
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Scroll Receipt — Daily Receipt for Short Video Time" />
     <meta
@@ -54,229 +46,113 @@
             "@type": "WebSite",
             "@id": "https://vushnevskuu.github.io/scroll-receipt/#website",
             "url": "https://vushnevskuu.github.io/scroll-receipt/",
-            "name": "Scroll Receipt",
-            "description": "Daily receipt for short-form video watch time in your browser"
-          },
-          {
-            "@type": "Organization",
-            "@id": "https://vushnevskuu.github.io/scroll-receipt/#organization",
-            "name": "Scroll Receipt",
-            "url": "https://vushnevskuu.github.io/scroll-receipt/",
-            "sameAs": ["https://github.com/vushnevskuu/scroll-receipt"]
+            "name": "Scroll Receipt"
           },
           {
             "@type": "SoftwareApplication",
-            "@id": "https://vushnevskuu.github.io/scroll-receipt/#app",
             "name": "Scroll Receipt",
             "applicationCategory": "BrowserApplication",
             "operatingSystem": "Chrome, Edge, Brave",
-            "description": "Browser extension that tracks confirmed playback time on Instagram Reels, YouTube Shorts, and TikTok, with optional daily email receipts.",
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD"
-            },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
             "downloadUrl": "https://vushnevskuu.github.io/scroll-receipt/scroll-receipt-2.0.0-chrome.zip",
-            "softwareVersion": "2.0.0",
-            "author": { "@id": "https://vushnevskuu.github.io/scroll-receipt/#organization" }
-          },
-          {
-            "@type": "FAQPage",
-            "@id": "https://vushnevskuu.github.io/scroll-receipt/#faq",
-            "mainEntity": [
-              {
-                "@type": "Question",
-                "name": "What does Scroll Receipt track?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Scroll Receipt tracks confirmed playback time on Instagram Reels, YouTube Shorts, and TikTok inside Chromium browsers. It counts time only when the video is playing, visible, and the tab is focused."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does Scroll Receipt track mobile apps?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "No. Scroll Receipt tracks browser activity only. It does not monitor the native Instagram, YouTube, or TikTok apps on your phone."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Is my data private?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes. By default all data stays in chrome.storage.local on your device. Optional email sync sends only daily totals (seconds and view counts per platform), never video URLs or titles."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "When do daily email receipts arrive?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "By default at 00:05 in your local timezone, covering the previous calendar day. You can change the time in extension settings after verifying your email."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "How do I install Scroll Receipt?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Download the zip from this page, unzip it, open chrome://extensions, enable Developer mode, click Load unpacked, and select the unzipped folder."
-                }
-              }
-            ]
+            "softwareVersion": "2.0.0"
           }
         ]
       }
     </script>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <main class="stage" aria-labelledby="title">
+      <div class="printer-assembly">
+        <div class="receipt-scroll" aria-live="polite">
+          <article class="receipt">
+            <div class="receipt-edge receipt-edge-top print-line" aria-hidden="true"></div>
 
-    <main id="main" class="stage" aria-labelledby="title">
-      <article class="receipt">
-        <div class="receipt-edge receipt-edge-top" aria-hidden="true"></div>
+            <header class="receipt-head print-line">
+              <p class="receipt-meta">ATTENTION ACCOUNTING</p>
+              <h1 id="title">SCROLL RECEIPT</h1>
+              <p class="receipt-sub">BROWSER ONLY · v2.0.0</p>
+            </header>
 
-        <header class="receipt-head">
-          <p class="receipt-meta">ATTENTION ACCOUNTING</p>
-          <h1 id="title">SCROLL RECEIPT</h1>
-          <p class="receipt-tagline">
-            A daily receipt for your Reels, Shorts, and TikTok time — counted only when video is
-            actually playing.
-          </p>
-          <p class="receipt-sub">Free Chrome extension · Browser only · v2.0.0</p>
-        </header>
+            <hr class="rule rule-dotted print-line" />
 
-        <hr class="rule rule-dotted" />
+            <section class="block print-line">
+              <p class="line line-spread">
+                <span>DATE</span>
+                <span id="receipt-date">—</span>
+              </p>
+              <p class="line line-spread">
+                <span>STATUS</span>
+                <span>TRACKING</span>
+              </p>
+            </section>
 
-        <section class="block block-cta-top" aria-label="Download">
-          <a class="btn btn-primary" href="scroll-receipt-2.0.0-chrome.zip" download>
-            Download free for Chrome
-          </a>
-          <p class="cta-note">242 KB · Unpacked install · No account required</p>
-        </section>
+            <hr class="rule rule-dotted print-line" />
 
-        <hr class="rule rule-dotted" />
+            <section class="block print-line">
+              <h2 class="section-label">ITEMS</h2>
+              <p class="line line-spread">
+                <span>INSTAGRAM REELS</span>
+                <span>00:41:18</span>
+              </p>
+              <p class="line line-spread">
+                <span>YOUTUBE SHORTS</span>
+                <span>00:26:04</span>
+              </p>
+              <p class="line line-spread">
+                <span>TIKTOK</span>
+                <span>00:38:51</span>
+              </p>
+            </section>
 
-        <section class="block">
-          <h2 class="section-label">LINE ITEMS</h2>
-          <p class="line line-spread">
-            <span>PLATFORMS</span>
-            <span>3</span>
-          </p>
-          <p class="line line-muted">Instagram Reels</p>
-          <p class="line line-muted">YouTube Shorts</p>
-          <p class="line line-muted">TikTok (browser)</p>
-          <p class="line line-spread">
-            <span>STORAGE</span>
-            <span>LOCAL FIRST</span>
-          </p>
-          <p class="line line-spread">
-            <span>EMAIL RECEIPTS</span>
-            <span>OPTIONAL</span>
-          </p>
-        </section>
+            <hr class="rule rule-dotted print-line" />
 
-        <hr class="rule rule-dotted" />
+            <section class="block print-line">
+              <p class="line line-spread line-total">
+                <span>TOTAL</span>
+                <span>01:46:13</span>
+              </p>
+              <p class="line line-spread">
+                <span>VIEWS</span>
+                <span>127</span>
+              </p>
+            </section>
 
-        <section class="block">
-          <h2 class="section-label">WHY IT'S DIFFERENT</h2>
-          <ul class="benefits">
-            <li>
-              <strong>Real playback</strong> — tab open ≠ watching. We verify play, focus, and
-              visibility.
-            </li>
-            <li>
-              <strong>Neutral tone</strong> — informative receipts, not guilt trips or streaks.
-            </li>
-            <li>
-              <strong>Privacy-first</strong> — no video URLs or titles sent to the server.
-            </li>
-          </ul>
-          <p class="copy copy-note">Native mobile apps are not tracked.</p>
-        </section>
+            <hr class="rule rule-dotted print-line" />
 
-        <hr class="rule rule-dotted" />
+            <section class="block print-line block-actions">
+              <a class="btn btn-primary" href="scroll-receipt-2.0.0-chrome.zip" download>
+                DOWNLOAD
+              </a>
+            </section>
 
-        <section class="block" id="install">
-          <h2 class="section-label">INSTALL (2 MIN)</h2>
-          <ol class="steps">
-            <li>
-              <a class="link-accent" href="scroll-receipt-2.0.0-chrome.zip" download
-                >Download the .zip</a
-              >
-            </li>
-            <li>Unzip on your computer.</li>
-            <li>
-              Open <code>chrome://extensions</code> in Chrome, Edge, or Brave.
-            </li>
-            <li>Turn on <strong>Developer mode</strong>.</li>
-            <li>Click <strong>Load unpacked</strong> → select the unzipped folder.</li>
-            <li>Pin Scroll Receipt. Watch a Reel or Short to see your first totals.</li>
-          </ol>
-        </section>
+            <hr class="rule rule-dotted print-line" />
 
-        <hr class="rule rule-dotted" />
+            <footer class="receipt-foot print-line">
+              <p class="line line-spread">
+                <span>PAID WITH</span>
+                <span>YOUR ATTENTION</span>
+              </p>
+              <p class="fine">
+                <a href="about.html">About</a> ·
+                <a href="install.html">Install</a> ·
+                <a href="faq.html">FAQ</a> ·
+                <a href="privacy.html">Privacy</a>
+              </p>
+            </footer>
 
-        <section class="block" id="faq" aria-labelledby="faq-heading">
-          <h2 class="section-label" id="faq-heading">FAQ</h2>
-          <dl class="faq">
-            <div>
-              <dt>What does it track?</dt>
-              <dd>
-                Confirmed playback on Reels, Shorts, and TikTok in your browser — not background
-                tabs or idle time.
-              </dd>
-            </div>
-            <div>
-              <dt>Does it work on my phone?</dt>
-              <dd>No. Browser only. We say that upfront because accuracy matters.</dd>
-            </div>
-            <div>
-              <dt>When does the email receipt arrive?</dt>
-              <dd>
-                Default: 00:05 local time, for yesterday. Enable in Options after email
-                verification.
-              </dd>
-            </div>
-            <div>
-              <dt>Can I pause or delete my data?</dt>
-              <dd>Yes — pause tracking, export JSON, or delete everything from Settings.</dd>
-            </div>
-          </dl>
-        </section>
+            <div class="receipt-edge receipt-edge-bottom print-line" aria-hidden="true"></div>
+          </article>
+        </div>
 
-        <hr class="rule rule-dotted" />
-
-        <section class="block block-actions">
-          <a class="btn btn-primary" href="scroll-receipt-2.0.0-chrome.zip" download>
-            Get Scroll Receipt
-          </a>
-          <a
-            class="btn btn-ghost"
-            href="https://github.com/vushnevskuu/scroll-receipt"
-            rel="noopener noreferrer"
-            >View source on GitHub</a
-          >
-          <a class="btn btn-ghost" href="privacy.html">Privacy policy</a>
-        </section>
-
-        <hr class="rule rule-dotted" />
-
-        <footer class="receipt-foot">
-          <p class="line line-spread">
-            <span>PAID WITH</span>
-            <span>YOUR ATTENTION</span>
-          </p>
-          <p class="fine">
-            Not affiliated with Instagram, YouTube, or TikTok.<br />
-            <a href="privacy.html">Privacy</a> ·
-            <a href="https://github.com/vushnevskuu/scroll-receipt">GitHub</a>
-          </p>
-        </footer>
-
-        <div class="receipt-edge receipt-edge-bottom" aria-hidden="true"></div>
-      </article>
+        <div class="printer-chassis" aria-hidden="true">
+          <div class="printer-mouth">
+            <span class="printer-led"></span>
+          </div>
+          <div class="printer-base"></div>
+        </div>
+      </div>
     </main>
+    <script src="print.js"></script>
   </body>
 </html>

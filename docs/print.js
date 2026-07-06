@@ -122,6 +122,7 @@ async function detachReceipt(scrollEl) {
   isFloating = true;
 
   var handoffRect = scrollEl.getBoundingClientRect();
+  var usedPhysics = false;
 
   if (usePhysics && physicsReady && physics) {
     try {
@@ -130,13 +131,15 @@ async function detachReceipt(scrollEl) {
         scrollEl.remove();
         slot.style.height = '0';
         reprint();
-        return;
+        usedPhysics = true;
       }
     } catch (_err) {
       scrollEl.style.removeProperty('visibility');
       scrollEl.removeAttribute('aria-hidden');
     }
   }
+
+  if (usedPhysics) return;
 
   cssFloatReceipt(scrollEl);
   reprint();
@@ -150,11 +153,18 @@ function wireReceipt(scrollEl) {
     });
   }
 
+  function finishFeed() {
+    if (scrollEl.classList.contains('is-fed')) return;
+    onFeedComplete(scrollEl);
+  }
+
   scrollEl.addEventListener('animationend', function onFeedEnd(event) {
     if (event.animationName !== 'paper-feed') return;
     scrollEl.removeEventListener('animationend', onFeedEnd);
-    onFeedComplete(scrollEl);
+    finishFeed();
   });
+
+  setTimeout(finishFeed, FEED_MS + 200);
 }
 
 async function boot() {

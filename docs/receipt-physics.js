@@ -13,12 +13,6 @@ function waitForAmmo() {
   });
 }
 
-function loadHtml2Canvas() {
-  return import('https://esm.sh/html2canvas@1.4.1').then(function (m) {
-    return m.default || m;
-  });
-}
-
 function pxToWorldX(px) {
   return px - window.innerWidth * 0.5;
 }
@@ -34,6 +28,63 @@ function rectToWorld(rect) {
     centerX: pxToWorldX(rect.left + rect.width * 0.5),
     centerY: pxToWorldY(rect.top + rect.height * 0.5),
   };
+}
+
+function captureTextureFromDom(receiptEl) {
+  var article = receiptEl.querySelector('.receipt') || receiptEl;
+  var dpr = Math.min(window.devicePixelRatio, 2);
+  var w = Math.max(article.offsetWidth, 1);
+  var h = Math.max(article.offsetHeight, 1);
+  var canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#f6f2ea';
+  ctx.fillRect(0, 0, w, h);
+
+  var clone = article.cloneNode(true);
+  clone.style.margin = '0';
+  clone.style.boxShadow = 'none';
+  clone.style.width = w + 'px';
+  clone.style.position = 'absolute';
+  clone.style.left = '-9999px';
+  document.body.appendChild(clone);
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">' +
+    '<foreignObject width="100%" height="100%">' +
+    new XMLSerializer().serializeToString(clone) +
+    '</foreignObject></svg>';
+  document.body.removeChild(clone);
+
+  var img = new Image();
+  var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+
+  return new Promise(function (resolve) {
+    img.onload = function () {
+      try {
+        ctx.drawImage(img, 0, 0, w, h);
+      } catch (_err) {
+        drawFallbackLabel(ctx, w, h);
+      }
+      resolve(new THREE.CanvasTexture(canvas));
+    };
+    img.onerror = function () {
+      drawFallbackLabel(ctx, w, h);
+      resolve(new THREE.CanvasTexture(canvas));
+    };
+    img.src = url;
+  });
+}
+
+function drawFallbackLabel(ctx, w, h) {
+  ctx.fillStyle = '#f6f2ea';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1916';
+  ctx.font = '600 18px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SCROLL RECEIPT', w * 0.5, 48);
 }
 
 export function createReceiptPhysics(options) {
@@ -173,22 +224,23 @@ export function createReceiptPhysics(options) {
     );
 
     var cfg = softBody.get_m_cfg();
-    cfg.set_viterations(8);
-    cfg.set_piterations(8);
+    cfg.set_viterations(10);
+    cfg.set_piterations(10);
     cfg.set_kDP(0.02);
     cfg.set_kPR(0.02);
 
-    softBody.setTotalMass(0.35, false);
+    softBody.setTotalMass(0.3, false);
     AmmoLib.castObject(softBody, AmmoLib.btCollisionObject).getCollisionShape().setMargin(MARGIN * 3);
     physicsWorld.addSoftBody(softBody, 1, -1);
     softBody.setActivationState(4);
 
-    cloth.userData.physicsBody = softBody;
+    cloth.userData.resX = resX;
+    cloth.userData.resY = resY;
     syncClothMesh();
-    applyTearImpulse();
   }
 
   function applyTearImpulse() {
+    if (!softBody) return;
     var nodes = softBody.get_m_nodes();
     var count = nodes.size();
 
@@ -197,16 +249,14 @@ export function createReceiptPhysics(options) {
       var pos = node.get_m_x();
       var vel = node.get_m_v();
 
-      var dx = 0 - pos.x();
-      var dy = 0 - pos.y();
-      vel.setX(vel.x() + dx * 0.008);
-      vel.setY(vel.y() + dy * 0.01 + 0.8);
+      vel.setY(vel.y() + 1.2);
+      vel.setX(vel.x() + (Math.random() - 0.5) * 0.4);
     }
   }
 
   function applyWindAndSpring() {
     windPhase += 0.016;
-    var wind = Math.sin(windPhase * 1.2) * 0.6;
+    var wind = Math.sin(windPhase * 1.2) * 0.5;
 
     var nodes = softBody.get_m_nodes();
     var count = nodes.size();
@@ -216,11 +266,10 @@ export function createReceiptPhysics(options) {
       var pos = node.get_m_x();
       var force = node.get_m_f();
 
-      force.setX(force.x() + wind * 0.25);
-      force.setY(force.y() + Math.sin(windPhase + i * 0.05) * 0.05);
-
-      force.setX(force.x() + (0 - pos.x()) * 0.0008);
-      force.setY(force.y() + (0 - pos.y()) * 0.001);
+      force.setX(force.x() + wind * 0.2);
+      force.setY(force.y() + Math.sin(windPhase + i * 0.05) * 0.04);
+      force.setX(force.x() + (0 - pos.x()) * 0.0006);
+      force.setY(force.y() + (0 - pos.y()) * 0.0008);
     }
   }
 
@@ -229,24 +278,26 @@ export function createReceiptPhysics(options) {
 
     var positions = cloth.geometry.attributes.position.array;
     var nodes = softBody.get_m_nodes();
-    var numVerts = positions.length / 3;
-    var nodeCount = nodes.size();
-    var count = Math.min(numVerts, nodeCount);
+    var resX = cloth.userData.resX;
+    var resY = cloth.userData.resY;
 
-    for (var i = 0; i < count; i++) {
-      var node = nodes.at(i);
-      var p = node.get_m_x();
-      var x = p.x();
-      var y = p.y();
-      var z = p.z();
+    for (var j = 0; j < resY; j++) {
+      for (var i = 0; i < resX; i++) {
+        var node = nodes.at(i + j * resX);
+        var p = node.get_m_x();
+        var x = p.x();
+        var y = p.y();
+        var z = p.z();
 
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        return false;
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+          return false;
+        }
+
+        var vertIdx = i + (resY - 1 - j) * resX;
+        positions[vertIdx * 3] = x;
+        positions[vertIdx * 3 + 1] = y;
+        positions[vertIdx * 3 + 2] = z;
       }
-
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
     }
 
     cloth.geometry.attributes.position.needsUpdate = true;
@@ -255,7 +306,7 @@ export function createReceiptPhysics(options) {
 
   function stepPhysics(dt) {
     applyWindAndSpring();
-    physicsWorld.stepSimulation(dt, 8, 1 / 120);
+    physicsWorld.stepSimulation(dt, 10, 1 / 120);
     return syncClothMesh();
   }
 
@@ -270,61 +321,15 @@ export function createReceiptPhysics(options) {
   function isClothMeshValid() {
     if (!cloth) return false;
     var positions = cloth.geometry.attributes.position.array;
-    var samples = [0, Math.floor(positions.length / 6), Math.floor(positions.length / 3) - 1];
+    if (!positions.length) return false;
 
-    for (var i = 0; i < samples.length; i++) {
-      var idx = samples[i] * 3;
-      if (!Number.isFinite(positions[idx]) || !Number.isFinite(positions[idx + 1])) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  async function captureTexture(receiptEl) {
-    try {
-      var html2canvas = await Promise.race([
-        loadHtml2Canvas(),
-        new Promise(function (_, reject) {
-          setTimeout(function () {
-            reject(new Error('html2canvas timeout'));
-          }, 1200);
-        }),
-      ]);
-      var captureTarget = receiptEl.querySelector('.receipt') || receiptEl;
-      var snapshot = await html2canvas(captureTarget, {
-        scale: Math.min(window.devicePixelRatio, 2),
-        backgroundColor: '#f6f2ea',
-        logging: false,
-        useCORS: true,
-      });
-      return new THREE.CanvasTexture(snapshot);
-    } catch (_err) {
-      return createFallbackTexture(receiptEl);
-    }
-  }
-
-  function createFallbackTexture(receiptEl) {
-    var article = receiptEl.querySelector('.receipt') || receiptEl;
-    var texCanvas = document.createElement('canvas');
-    texCanvas.width = Math.max(article.offsetWidth, 360);
-    texCanvas.height = Math.max(article.offsetHeight, 540);
-    var ctx = texCanvas.getContext('2d');
-    ctx.fillStyle = '#f6f2ea';
-    ctx.fillRect(0, 0, texCanvas.width, texCanvas.height);
-    ctx.fillStyle = '#1a1916';
-    ctx.font = '600 18px IBM Plex Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('SCROLL RECEIPT', texCanvas.width * 0.5, 48);
-    return new THREE.CanvasTexture(texCanvas);
-  }
-
-  function renderFrames(count) {
-    for (var i = 0; i < count; i++) {
-      stepPhysics(1 / 60);
-      renderer.render(scene, camera);
-    }
+    var mid = Math.floor(positions.length / 6) * 3;
+    return (
+      Number.isFinite(positions[0]) &&
+      Number.isFinite(positions[1]) &&
+      Number.isFinite(positions[mid]) &&
+      Number.isFinite(positions[mid + 1])
+    );
   }
 
   return {
@@ -347,18 +352,21 @@ export function createReceiptPhysics(options) {
 
         clearCloth();
 
-        var texture = await captureTexture(scrollEl);
+        var texture = await captureTextureFromDom(scrollEl);
         createCloth(rect, texture);
-        renderFrames(3);
 
-        if (!isClothMeshValid()) {
+        if (!syncClothMesh() || !isClothMeshValid()) {
           clearCloth();
           return false;
         }
 
+        renderer.render(scene, camera);
+
         canvas.classList.add('is-active');
         scrollEl.style.visibility = 'hidden';
         scrollEl.setAttribute('aria-hidden', 'true');
+
+        applyTearImpulse();
 
         if (!running) {
           running = true;

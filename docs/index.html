@@ -38,6 +38,14 @@
     />
     <link rel="stylesheet" href="style.css" />
 
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./libs/three.module.js"
+        }
+      }
+    </script>
+
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -62,6 +70,14 @@
     </script>
   </head>
   <body>
+    <canvas id="receipt-canvas" aria-hidden="true"></canvas>
+    <nav class="sr-hotspots" aria-label="Receipt actions">
+      <a class="sr-hotspot" href="scroll-receipt-2.0.0-chrome.zip" download>Download extension</a>
+      <a class="sr-hotspot" href="about.html">About</a>
+      <a class="sr-hotspot" href="install.html">Install</a>
+      <a class="sr-hotspot" href="faq.html">FAQ</a>
+      <a class="sr-hotspot" href="privacy.html">Privacy</a>
+    </nav>
     <main class="stage" aria-labelledby="title">
       <div class="printer-assembly">
         <div class="receipt-slot" aria-live="polite">
@@ -155,6 +171,6 @@
         </div>
       </div>
     </main>
-    <script type="module" src="print.js?v=20"></script>
+    <script type="module" src="print.js?v=30"></script>
   </body>
 </html>

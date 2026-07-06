@@ -1,12 +1,15 @@
+import { createReceiptCloth } from './cloth/receipt-cloth.js';
 import { createReceiptSpring } from './receipt-spring.js';
 
 var FEED_MS = 2600;
 var scrollTemplate = '';
 var isDetaching = false;
 var motionEnabled = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var clothInstance = null;
 
 var slot = document.querySelector('.receipt-slot');
 var scroll = document.querySelector('.receipt-scroll');
+var canvas = document.querySelector('#receipt-canvas');
 
 function formatDate() {
   return new Date().toLocaleDateString('en-US', {
@@ -36,13 +39,21 @@ function getReceiptEl(scrollEl) {
   return scrollEl.querySelector('.receipt');
 }
 
-function startFeed(scrollEl) {
+function stopInteractions(scrollEl) {
   if (scrollEl._spring) {
     scrollEl._spring.stop();
     scrollEl._spring = null;
   }
+}
 
-  scrollEl.classList.remove('is-fed', 'is-detached');
+function startFeed(scrollEl) {
+  stopInteractions(scrollEl);
+  if (clothInstance) {
+    clothInstance.destroy();
+    clothInstance = null;
+  }
+
+  scrollEl.classList.remove('is-fed', 'is-detached', 'is-cloth');
   scrollEl.style.removeProperty('transform');
   scrollEl.style.removeProperty('animation');
   scrollEl.style.removeProperty('will-change');
@@ -56,6 +67,7 @@ function startFeed(scrollEl) {
   if (paper) {
     paper.style.removeProperty('transform');
     paper.style.removeProperty('box-shadow');
+    paper.style.removeProperty('visibility');
   }
 
   document.documentElement.classList.add('printing');
@@ -65,16 +77,37 @@ function startFeed(scrollEl) {
   });
 }
 
-function onFeedComplete(scrollEl) {
+async function onFeedComplete(scrollEl) {
   scrollEl.classList.remove('is-feeding');
   scrollEl.classList.add('is-fed');
   document.documentElement.classList.remove('printing');
 
   if (!motionEnabled) return;
 
+  var useCloth = canvas && motionEnabled;
+
+  if (useCloth) {
+    clothInstance = createReceiptCloth({
+      canvas: '#receipt-canvas',
+      onDownload: function () {
+        void detachReceipt(scrollEl);
+      },
+    });
+    var ok = await clothInstance.init(scrollEl);
+    if (ok) {
+      clothInstance.hideDom(scrollEl);
+      scrollEl.classList.add('is-cloth');
+      clothInstance.start();
+      return;
+    }
+    if (clothInstance) {
+      clothInstance.destroy();
+      clothInstance = null;
+    }
+  }
+
   var paper = getReceiptEl(scrollEl);
   if (!paper) return;
-
   var spring = createReceiptSpring(paper);
   scrollEl._spring = spring;
   spring.start();
@@ -97,11 +130,15 @@ async function detachReceipt(scrollEl) {
   if (isDetaching || !scrollEl.classList.contains('is-fed')) return;
   isDetaching = true;
 
-  var spring = scrollEl._spring;
-  if (spring) {
-    spring.stop();
-    scrollEl._spring = null;
+  if (clothInstance) {
+    clothInstance.stop();
+    clothInstance.destroy();
+    clothInstance = null;
+    var paper = getReceiptEl(scrollEl);
+    if (paper) paper.style.visibility = '';
   }
+
+  stopInteractions(scrollEl);
 
   var rect = scrollEl.getBoundingClientRect();
   var paper = getReceiptEl(scrollEl);
@@ -116,7 +153,7 @@ async function detachReceipt(scrollEl) {
   scrollEl.style.margin = '0';
   scrollEl.style.zIndex = '20';
   scrollEl.classList.add('is-detached');
-  scrollEl.classList.remove('is-fed');
+  scrollEl.classList.remove('is-fed', 'is-cloth');
 
   if (motionEnabled && paper) {
     var flySpring = createReceiptSpring(paper, {
@@ -137,14 +174,17 @@ async function detachReceipt(scrollEl) {
 function wireReceipt(scrollEl) {
   var downloadBtn = scrollEl.querySelector('.btn-primary');
   if (downloadBtn) {
-    downloadBtn.addEventListener('click', function () {
+    downloadBtn.addEventListener('click', function (e) {
+      if (scrollEl.classList.contains('is-cloth')) {
+        e.preventDefault();
+      }
       void detachReceipt(scrollEl);
     });
   }
 
   function finishFeed() {
     if (scrollEl.classList.contains('is-fed')) return;
-    onFeedComplete(scrollEl);
+    void onFeedComplete(scrollEl);
   }
 
   scrollEl.addEventListener('animationend', function onFeedEnd(event) {

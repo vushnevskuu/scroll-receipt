@@ -19,7 +19,8 @@
   var step = (duration - startDelay) / Math.max(lines.length, 1);
 
   lines.forEach(function (line, index) {
-    line.style.setProperty('--print-delay', startDelay + index * step + 'ms');
+    var reverseIndex = lines.length - 1 - index;
+    line.style.setProperty('--print-delay', startDelay + reverseIndex * step + 'ms');
   });
 
   document.documentElement.classList.add('printing');

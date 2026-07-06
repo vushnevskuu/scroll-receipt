@@ -71,7 +71,7 @@ body {
 
 .receipt-scroll {
   width: 100%;
-  clip-path: inset(0 0 100% 0);
+  clip-path: inset(100% 0 0 0);
   will-change: clip-path;
 }
 
@@ -80,6 +80,10 @@ body {
 }
 
 @keyframes receipt-feed {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+
   to {
     clip-path: inset(0 0 0 0);
   }

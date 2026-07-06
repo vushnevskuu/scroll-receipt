@@ -21,6 +21,22 @@ html {
   -webkit-font-smoothing: antialiased;
 }
 
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 8px 12px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 16px;
+  top: 16px;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -85,12 +101,75 @@ body {
   line-height: 1.2;
 }
 
+.receipt-tagline {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+
 .receipt-sub {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--ink-muted);
   text-transform: uppercase;
+}
+
+.block-cta-top {
+  text-align: center;
+}
+
+.cta-note {
+  margin: 8px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.benefits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.benefits li {
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.benefits strong {
+  font-weight: 600;
+}
+
+.faq {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.faq dt {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.faq dd {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--ink-muted);
+}
+
+.fine a {
+  color: inherit;
+}
+
+.fine a:hover {
+  color: var(--ink);
 }
 
 .block {

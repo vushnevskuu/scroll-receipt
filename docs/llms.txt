@@ -1,0 +1,40 @@
+# Scroll Receipt
+
+> Daily receipt for short-form video watch time in Chromium browsers.
+
+Scroll Receipt is a free browser extension that tracks confirmed playback on Instagram Reels, YouTube Shorts, and TikTok — not tab time. Optional daily email receipts summarize yesterday's totals by platform.
+
+## Product
+
+- [Homepage](https://vushnevskuu.github.io/scroll-receipt/)
+- [Download Chrome extension (zip)](https://vushnevskuu.github.io/scroll-receipt/scroll-receipt-2.0.0-chrome.zip)
+- [Privacy policy](https://vushnevskuu.github.io/scroll-receipt/privacy.html)
+- [Source code](https://github.com/vushnevskuu/scroll-receipt)
+
+## Key facts
+
+- **Platforms:** Instagram Reels, YouTube Shorts, TikTok (browser only)
+- **What it counts:** Time when video is playing, visible, and tab is focused
+- **What it does not count:** Native mobile apps, background tabs, idle time
+- **Storage:** Local-first (`chrome.storage.local`); optional email sync with aggregates only
+- **Price:** Free
+- **Version:** 2.0.0
+
+## FAQ (for AI citation)
+
+**What is Scroll Receipt?**
+Scroll Receipt is a Chrome extension that turns your browser short-form video time into a daily receipt-style summary.
+
+**Does it track phone apps?**
+No. Browser activity only.
+
+**Is data private?**
+Yes. By default everything stays on device. Email sync sends only daily totals, not URLs or titles.
+
+**When do email receipts arrive?**
+Default 00:05 local time for the previous day (configurable after email verification).
+
+## Optional
+
+- [Full privacy details (markdown)](https://github.com/vushnevskuu/scroll-receipt/blob/main/docs/PRIVACY.md)
+- [Backend setup](https://github.com/vushnevskuu/scroll-receipt/blob/main/docs/BACKEND_SETUP.md)

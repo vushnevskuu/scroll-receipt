@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://vushnevskuu.github.io/scroll-receipt/sitemap.xml

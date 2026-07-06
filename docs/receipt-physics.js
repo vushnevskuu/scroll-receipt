@@ -126,8 +126,10 @@ export function createReceiptPhysics(options) {
     var centerX = world.centerX;
     var centerY = world.centerY;
 
-    var segmentsX = Math.max(8, Math.round(worldW / 24));
-    var segmentsY = Math.max(12, Math.round(worldH / 24));
+    var segmentsX = Math.max(8, Math.round(worldW / 28));
+    var segmentsY = Math.max(12, Math.round(worldH / 28));
+    var resX = segmentsX + 1;
+    var resY = segmentsY + 1;
 
     var geometry = new THREE.PlaneGeometry(worldW, worldH, segmentsX, segmentsY);
     geometry.translate(centerX, centerY, 0);
@@ -164,26 +166,25 @@ export function createReceiptPhysics(options) {
       c01,
       c10,
       c11,
-      segmentsX + 1,
-      segmentsY + 1,
+      resX,
+      resY,
       0,
       true
     );
 
     var cfg = softBody.get_m_cfg();
-    cfg.set_viterations(6);
-    cfg.set_piterations(6);
-    cfg.set_kDP(0.015);
-    cfg.set_kPR(0.01);
+    cfg.set_viterations(8);
+    cfg.set_piterations(8);
+    cfg.set_kDP(0.02);
+    cfg.set_kPR(0.02);
 
-    softBody.setTotalMass(0.2, false);
-    AmmoLib.castObject(softBody, AmmoLib.btCollisionObject).getCollisionShape().setMargin(MARGIN * 2);
+    softBody.setTotalMass(0.35, false);
+    AmmoLib.castObject(softBody, AmmoLib.btCollisionObject).getCollisionShape().setMargin(MARGIN * 3);
     physicsWorld.addSoftBody(softBody, 1, -1);
     softBody.setActivationState(4);
 
     cloth.userData.physicsBody = softBody;
-    cloth.userData.segmentsX = segmentsX;
-    cloth.userData.segmentsY = segmentsY;
+    syncClothMesh();
     applyTearImpulse();
   }
 
@@ -198,14 +199,14 @@ export function createReceiptPhysics(options) {
 
       var dx = 0 - pos.x();
       var dy = 0 - pos.y();
-      vel.setX(vel.x() + dx * 0.012);
-      vel.setY(vel.y() + dy * 0.018 + 1.5);
+      vel.setX(vel.x() + dx * 0.008);
+      vel.setY(vel.y() + dy * 0.01 + 0.8);
     }
   }
 
   function applyWindAndSpring() {
     windPhase += 0.016;
-    var wind = Math.sin(windPhase * 1.2) * 0.9;
+    var wind = Math.sin(windPhase * 1.2) * 0.6;
 
     var nodes = softBody.get_m_nodes();
     var count = nodes.size();
@@ -215,41 +216,47 @@ export function createReceiptPhysics(options) {
       var pos = node.get_m_x();
       var force = node.get_m_f();
 
-      force.setX(force.x() + wind * 0.35);
-      force.setY(force.y() + Math.sin(windPhase + i * 0.05) * 0.08);
+      force.setX(force.x() + wind * 0.25);
+      force.setY(force.y() + Math.sin(windPhase + i * 0.05) * 0.05);
 
-      force.setX(force.x() + (0 - pos.x()) * 0.0012);
-      force.setY(force.y() + (0 - pos.y()) * 0.0015);
+      force.setX(force.x() + (0 - pos.x()) * 0.0008);
+      force.setY(force.y() + (0 - pos.y()) * 0.001);
     }
   }
 
   function syncClothMesh() {
-    if (!cloth || !softBody) return;
+    if (!cloth || !softBody) return false;
 
     var positions = cloth.geometry.attributes.position.array;
     var nodes = softBody.get_m_nodes();
-    var resX = cloth.userData.segmentsX + 1;
-    var resY = cloth.userData.segmentsY + 1;
+    var numVerts = positions.length / 3;
+    var nodeCount = nodes.size();
+    var count = Math.min(numVerts, nodeCount);
 
-    for (var j = 0; j < resY; j++) {
-      for (var i = 0; i < resX; i++) {
-        var node = nodes.at(i + j * resX);
-        var p = node.get_m_x();
-        var vert = i + (resY - 1 - j) * resX;
-        positions[vert * 3] = p.x();
-        positions[vert * 3 + 1] = p.y();
-        positions[vert * 3 + 2] = p.z();
+    for (var i = 0; i < count; i++) {
+      var node = nodes.at(i);
+      var p = node.get_m_x();
+      var x = p.x();
+      var y = p.y();
+      var z = p.z();
+
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        return false;
       }
+
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
     }
 
     cloth.geometry.attributes.position.needsUpdate = true;
-    cloth.geometry.computeVertexNormals();
+    return true;
   }
 
   function stepPhysics(dt) {
     applyWindAndSpring();
-    physicsWorld.stepSimulation(dt, 6, 1 / 180);
-    syncClothMesh();
+    physicsWorld.stepSimulation(dt, 8, 1 / 120);
+    return syncClothMesh();
   }
 
   function animate() {
@@ -260,20 +267,19 @@ export function createReceiptPhysics(options) {
     requestAnimationFrame(animate);
   }
 
-  function samplePixelVisible(screenX, screenY) {
-    var gl = renderer.getContext();
-    var dpr = renderer.getPixelRatio();
-    var px = Math.floor(screenX * dpr);
-    var py = Math.floor((window.innerHeight - screenY) * dpr);
-    var buf = new Uint8Array(4);
-    gl.readPixels(px, py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-    return buf[3] > 8 || buf[0] + buf[1] + buf[2] > 40;
-  }
+  function isClothMeshValid() {
+    if (!cloth) return false;
+    var positions = cloth.geometry.attributes.position.array;
+    var samples = [0, Math.floor(positions.length / 6), Math.floor(positions.length / 3) - 1];
 
-  function isClothVisible(rect) {
-    var cx = rect.left + rect.width * 0.5;
-    var cy = rect.top + rect.height * 0.5;
-    return samplePixelVisible(cx, cy);
+    for (var i = 0; i < samples.length; i++) {
+      var idx = samples[i] * 3;
+      if (!Number.isFinite(positions[idx]) || !Number.isFinite(positions[idx + 1])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   async function captureTexture(receiptEl) {
@@ -314,9 +320,11 @@ export function createReceiptPhysics(options) {
     return new THREE.CanvasTexture(texCanvas);
   }
 
-  function renderFrame() {
-    stepPhysics(1 / 60);
-    renderer.render(scene, camera);
+  function renderFrames(count) {
+    for (var i = 0; i < count; i++) {
+      stepPhysics(1 / 60);
+      renderer.render(scene, camera);
+    }
   }
 
   return {
@@ -341,16 +349,9 @@ export function createReceiptPhysics(options) {
 
         var texture = await captureTexture(scrollEl);
         createCloth(rect, texture);
-        renderFrame();
+        renderFrames(3);
 
-        if (!isClothVisible(rect)) {
-          await new Promise(function (resolve) {
-            requestAnimationFrame(resolve);
-          });
-          renderFrame();
-        }
-
-        if (!isClothVisible(rect)) {
+        if (!isClothMeshValid()) {
           clearCloth();
           return false;
         }

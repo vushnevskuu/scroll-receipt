@@ -114,6 +114,53 @@ body {
   animation: none;
 }
 
+.receipt-floating .receipt-scroll {
+  position: fixed;
+  z-index: 20;
+  margin: 0;
+  animation:
+    receipt-lift 1.15s cubic-bezier(0.22, 1.05, 0.36, 1) forwards,
+    receipt-sway 5s ease-in-out 1.15s infinite;
+  transform-origin: center center;
+}
+
+.receipt-floating .receipt {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 32px 80px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes receipt-lift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-1deg);
+  }
+
+  10% {
+    transform: translate3d(0, -14px, 0) rotate(-2deg);
+  }
+
+  100% {
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
+  }
+}
+
+@keyframes receipt-sway {
+  0%,
+  100% {
+    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
+  }
+
+  33% {
+    transform: translate3d(calc(var(--lift-x, 0px) + 6px), calc(var(--lift-y, 0px) - 7px), 0)
+      rotate(-1.5deg);
+  }
+
+  66% {
+    transform: translate3d(calc(var(--lift-x, 0px) - 5px), calc(var(--lift-y, 0px) + 5px), 0)
+      rotate(-4.8deg);
+  }
+}
+
 .printer-chassis {
   width: calc(100% + 40px);
   flex-shrink: 0;
@@ -423,7 +470,7 @@ body {
 }
 
 .receipt-foot {
-  padding: 8px 24px 28px;
+  padding: 8px 24px 8px;
   text-align: center;
 }
 
@@ -447,6 +494,11 @@ body {
 
   .receipt-scroll {
     transform: none;
+    animation: none;
+  }
+
+  .receipt-floating .receipt-scroll {
+    position: static;
     animation: none;
   }
 

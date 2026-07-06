@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --color-page-bg: #24231f;
+  --color-paper: #f7f4ea;
+  --color-paper-secondary: #eeeadf;
+  --color-ink: #171713;
+  --color-ink-faded: #747067;
+  --color-divider: #aaa59a;
+  --color-stamp-red: #c53a2f;
+  --color-success-green: #246b4b;
+  --font-mono: 'IBM Plex Mono', 'Space Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply m-0 min-h-full bg-page-bg text-ink font-mono;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.receipt-paper {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.03) 0.5px, transparent 0.5px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 40%);
+  background-size:
+    4px 4px,
+    100% 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.receipt-edge-top,
+.receipt-edge-bottom {
+  height: 10px;
+  background-color: var(--color-paper);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10' viewBox='0 0 20 10'%3E%3Cpath d='M0 10 L5 0 L10 10 L15 0 L20 10 Z' fill='black'/%3E%3C/svg%3E");
+  mask-size: 20px 10px;
+  mask-repeat: repeat-x;
+}
+
+.receipt-edge-top {
+  transform: rotate(180deg);
+}
+
+@keyframes print-line {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.receipt-animate-line {
+  animation: print-line 0.15s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .receipt-animate-line {
+    animation: none;
+  }
+}
+
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.4) rotate(-8deg);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1) rotate(-12deg);
+  }
+}
+
+.stamp-animate {
+  animation: stamp 0.35s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-animate {
+    animation: none;
+    opacity: 0.85;
+  }
+}

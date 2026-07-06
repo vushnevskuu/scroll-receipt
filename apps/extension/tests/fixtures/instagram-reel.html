@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Instagram Reel</title>
+  </head>
+  <body>
+    <article class="reel-player">
+      <video id="reel-video" width="360" height="640"></video>
+    </article>
+    <script>
+      const video = document.getElementById('reel-video');
+      let t = 0;
+      setInterval(() => {
+        if (!video.paused) {
+          t += 0.25;
+          video.currentTime = t;
+        }
+      }, 250);
+    </script>
+  </body>
+</html>

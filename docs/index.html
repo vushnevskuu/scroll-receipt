@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Scroll Receipt — browser extension that prints a daily receipt of your short-form video attention."
+    />
+    <title>Scroll Receipt</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="stage" aria-labelledby="title">
+      <article class="receipt">
+        <div class="receipt-edge receipt-edge-top" aria-hidden="true"></div>
+
+        <header class="receipt-head">
+          <p class="receipt-meta">ATTENTION ACCOUNTING</p>
+          <h1 id="title">SCROLL RECEIPT</h1>
+          <p class="receipt-sub">Browser extension · v2.0.0</p>
+        </header>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block">
+          <p class="line line-spread">
+            <span>ITEM</span>
+            <span>DETAIL</span>
+          </p>
+          <p class="line line-spread">
+            <span>PLATFORMS</span>
+            <span>3</span>
+          </p>
+          <p class="line line-muted">Instagram Reels</p>
+          <p class="line line-muted">YouTube Shorts</p>
+          <p class="line line-muted">TikTok (browser)</p>
+          <p class="line line-spread">
+            <span>STORAGE</span>
+            <span>LOCAL</span>
+          </p>
+          <p class="line line-spread">
+            <span>TRACKING</span>
+            <span>ACTIVE PLAYBACK</span>
+          </p>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block">
+          <h2 class="section-label">WHAT IT DOES</h2>
+          <p class="copy">
+            Counts confirmed watch time on short vertical video in Chromium. Not tab time. Not
+            background noise. Only when the clip is actually playing in focus.
+          </p>
+          <p class="copy copy-note">Native mobile apps are not tracked.</p>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block">
+          <h2 class="section-label">INSTALL</h2>
+          <ol class="steps">
+            <li>
+              <a class="link-accent" href="scroll-receipt-2.0.0-chrome.zip" download
+                >Download the .zip</a
+              >
+              (234 KB)
+            </li>
+            <li>Unzip the archive on your computer.</li>
+            <li>Open <code>chrome://extensions</code> in Chrome, Edge, or Brave.</li>
+            <li>Enable <strong>Developer mode</strong> (top right).</li>
+            <li>Click <strong>Load unpacked</strong> and select the unzipped folder.</li>
+            <li>Pin Scroll Receipt. Open a Reel, Short, or TikTok tab to start.</li>
+          </ol>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block block-actions">
+          <a class="btn btn-primary" href="scroll-receipt-2.0.0-chrome.zip" download>
+            DOWNLOAD EXTENSION
+          </a>
+          <a
+            class="btn btn-ghost"
+            href="https://github.com/vushnevskuu/scroll-receipt"
+            rel="noopener noreferrer"
+            >View source</a
+          >
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <footer class="receipt-foot">
+          <p class="line line-spread">
+            <span>PAID WITH</span>
+            <span>YOUR ATTENTION</span>
+          </p>
+          <p class="fine">
+            Not affiliated with Instagram, YouTube, or TikTok.<br />
+            Data stays on your device unless you enable optional email sync.
+          </p>
+        </footer>
+
+        <div class="receipt-edge receipt-edge-bottom" aria-hidden="true"></div>
+      </article>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>YouTube Short</title>
+  </head>
+  <body>
+    <main id="shorts-container">
+      <video id="short-video" width="360" height="640" src=""></video>
+      <button id="play-btn" type="button">Play</button>
+      <button id="pause-btn" type="button">Pause</button>
+    </main>
+    <script>
+      const video = document.getElementById('short-video');
+      document.getElementById('play-btn').addEventListener('click', () => video.play());
+      document.getElementById('pause-btn').addEventListener('click', () => video.pause());
+    </script>
+  </body>
+</html>

@@ -55,6 +55,7 @@
     document.documentElement.classList.remove('printing');
 
     requestAnimationFrame(function () {
+      scroll.style.removeProperty('animation');
       scroll.style.transform = 'translate3d(0, 0, 0) rotate(-1deg)';
       scroll.classList.add('is-floating');
     });

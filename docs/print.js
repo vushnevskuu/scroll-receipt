@@ -8,10 +8,20 @@
     });
   }
 
+  var slot = document.querySelector('.receipt-slot');
+  var scroll = document.querySelector('.receipt-scroll');
+  if (!slot || !scroll) return;
+
+  var receiptHeight = scroll.offsetHeight;
+  document.documentElement.style.setProperty('--receipt-h', receiptHeight + 'px');
+
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.documentElement.classList.add('motion-off');
+    slot.style.height = receiptHeight + 'px';
     return;
   }
 
-  document.documentElement.classList.add('printing');
+  requestAnimationFrame(function () {
+    document.documentElement.classList.add('printing');
+  });
 })();

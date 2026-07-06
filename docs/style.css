@@ -69,28 +69,48 @@ body {
   width: min(var(--receipt-width), 100%);
 }
 
-.receipt-scroll {
+.receipt-slot {
   width: 100%;
-  clip-path: inset(100% 0 0 0);
-  will-change: clip-path;
+  height: 0;
+  overflow: hidden;
+}
+
+.receipt-scroll {
+  will-change: transform;
+  transform: translate3d(0, 100%, 0);
+}
+
+.printing .receipt-slot {
+  animation: slot-open 3.2s cubic-bezier(0.33, 1, 0.22, 1) forwards;
 }
 
 .printing .receipt-scroll {
-  animation: receipt-feed 3.2s cubic-bezier(0.33, 1, 0.22, 1) forwards;
+  animation: paper-feed 3.2s cubic-bezier(0.33, 1, 0.22, 1) forwards;
 }
 
-@keyframes receipt-feed {
+@keyframes slot-open {
+  to {
+    height: var(--receipt-h, 720px);
+  }
+}
+
+@keyframes paper-feed {
   from {
-    clip-path: inset(100% 0 0 0);
+    transform: translate3d(0, 100%, 0);
   }
 
   to {
-    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
+.motion-off .receipt-slot {
+  height: var(--receipt-h, auto);
+  animation: none;
+}
+
 .motion-off .receipt-scroll {
-  clip-path: inset(0 0 0 0);
+  transform: none;
   animation: none;
 }
 
@@ -420,8 +440,13 @@ body {
     transition: none;
   }
 
+  .receipt-slot {
+    height: var(--receipt-h, auto);
+    animation: none;
+  }
+
   .receipt-scroll {
-    clip-path: inset(0 0 0 0);
+    transform: none;
     animation: none;
   }
 

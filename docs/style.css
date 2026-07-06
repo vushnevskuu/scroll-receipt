@@ -54,7 +54,7 @@ body {
   justify-content: center;
   align-items: flex-end;
   min-height: 100dvh;
-  padding: 32px 16px 24px;
+  padding: 32px 16px 0;
 }
 
 .stage-static {
@@ -89,33 +89,8 @@ body {
   }
 }
 
-.print-line {
-  opacity: 0;
-}
-
-.printing .print-line {
-  animation: ink-appear 0.12s ease forwards;
-  animation-delay: var(--print-delay, 0ms);
-}
-
-@keyframes ink-appear {
-  from {
-    opacity: 0;
-    filter: blur(1px);
-  }
-
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
 .motion-off .receipt-scroll {
   clip-path: inset(0 0 0 0);
-}
-
-.motion-off .print-line {
-  opacity: 1;
   animation: none;
 }
 
@@ -447,11 +422,6 @@ body {
 
   .receipt-scroll {
     clip-path: inset(0 0 0 0);
-    animation: none;
-  }
-
-  .print-line {
-    opacity: 1;
     animation: none;
   }
 

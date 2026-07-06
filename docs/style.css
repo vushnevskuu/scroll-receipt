@@ -49,28 +49,22 @@ body {
     var(--page);
 }
 
-#receipt-canvas {
-  position: fixed;
-  inset: 0;
+.receipt-slot {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
   width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 25;
-  opacity: 0;
+  height: var(--receipt-h, auto);
+  overflow: hidden;
 }
 
-#receipt-canvas.is-active {
-  opacity: 1;
+.receipt-slot:has(.receipt-scroll.is-fed) {
+  overflow: visible;
 }
 
-.receipt-physics-active .receipt-scroll .receipt {
-  visibility: hidden;
-}
-
-.receipt-physics-active .receipt-scroll a {
-  visibility: visible;
-  position: relative;
-  z-index: 30;
+.receipt-slot .receipt-scroll.is-fed,
+.receipt-slot .receipt-scroll.is-detached {
+  pointer-events: auto;
 }
 
 .stage {
@@ -85,7 +79,7 @@ body {
 .printer-assembly {
   position: fixed;
   left: 50%;
-  top: calc(50vh + var(--receipt-h, 540px));
+  top: var(--mouth-top, calc(50vh + var(--receipt-h, 540px)));
   transform: translateX(-50%);
   z-index: 10;
   display: flex;
@@ -99,20 +93,7 @@ body {
   padding: 48px 16px 64px;
 }
 
-.receipt-slot {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  width: 100%;
-  height: var(--receipt-h, auto);
-  overflow: hidden;
-}
-
-.receipt-slot .receipt-scroll.is-fed {
-  pointer-events: auto;
-}
-
-.receipt-scroll:not(.is-fed):not(.is-feeding):not(.is-floating):not(.is-swaying) {
+.receipt-scroll:not(.is-fed):not(.is-feeding):not(.is-detached) {
   transform: translate3d(0, 100%, 0);
 }
 
@@ -144,48 +125,19 @@ body {
   animation: none;
 }
 
-.receipt-scroll.is-floating {
-  animation: receipt-lift 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  transform-origin: center center;
-  will-change: transform;
+.receipt {
+  touch-action: pan-y;
+  cursor: grab;
 }
 
-.receipt-scroll.is-swaying {
-  animation: receipt-sway 4.5s ease-in-out infinite;
-  transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
+.receipt:active {
+  cursor: grabbing;
 }
 
-.receipt-scroll.is-floating .receipt,
-.receipt-scroll.is-swaying .receipt {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 32px 80px rgba(0, 0, 0, 0.55);
-}
-
-@keyframes receipt-lift {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(-1deg);
-  }
-
-  12% {
-    transform: translate3d(0, -12px, 0) rotate(-2deg);
-  }
-
-  100% {
-    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
-  }
-}
-
-@keyframes receipt-sway {
-  0%,
-  100% {
-    transform: translate3d(var(--lift-x, 0), var(--lift-y, 0), 0) rotate(-3.5deg);
-  }
-
-  50% {
-    transform: translate3d(calc(var(--lift-x, 0px) + 5px), calc(var(--lift-y, 0px) - 6px), 0)
-      rotate(-1.8deg);
-  }
+.receipt a,
+.receipt .btn {
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .printer-chassis {

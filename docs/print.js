@@ -1,19 +1,12 @@
-import { createReceiptPhysics } from './receipt-physics.js';
+import { createReceiptSpring } from './receipt-spring.js';
 
 var FEED_MS = 2600;
 var scrollTemplate = '';
-var isFloating = false;
-var physics = null;
-var physicsReady = false;
-var usePhysics =
-  !window.matchMedia('(prefers-reduced-motion: reduce)').matches &&
-  new URLSearchParams(window.location.search).get('physics') !== '0';
+var isDetaching = false;
+var motionEnabled = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 var slot = document.querySelector('.receipt-slot');
 var scroll = document.querySelector('.receipt-scroll');
-if (!slot || !scroll) {
-  // module must not throw on missing DOM
-}
 
 function formatDate() {
   return new Date().toLocaleDateString('en-US', {
@@ -32,21 +25,38 @@ function positionPrinter(scrollEl) {
   var height = scrollEl.offsetHeight;
   document.documentElement.style.setProperty('--receipt-h', height + 'px');
   slot.style.height = height + 'px';
+
+  var mouthTop = window.innerHeight * 0.5 + height;
+  mouthTop = Math.min(mouthTop, window.innerHeight - 40);
+  mouthTop = Math.max(mouthTop, height + 32);
+  document.documentElement.style.setProperty('--mouth-top', mouthTop + 'px');
 }
 
-function freezeTransform(scrollEl) {
-  var computed = getComputedStyle(scrollEl);
-  scrollEl.style.animation = 'none';
-  scrollEl.style.transform = computed.transform;
-  void scrollEl.offsetHeight;
+function getReceiptEl(scrollEl) {
+  return scrollEl.querySelector('.receipt');
 }
 
 function startFeed(scrollEl) {
-  scrollEl.classList.remove('is-fed', 'is-floating', 'is-swaying');
+  if (scrollEl._spring) {
+    scrollEl._spring.stop();
+    scrollEl._spring = null;
+  }
+
+  scrollEl.classList.remove('is-fed', 'is-detached');
   scrollEl.style.removeProperty('transform');
   scrollEl.style.removeProperty('animation');
   scrollEl.style.removeProperty('will-change');
-  scrollEl.style.removeProperty('visibility');
+  scrollEl.style.removeProperty('position');
+  scrollEl.style.removeProperty('left');
+  scrollEl.style.removeProperty('top');
+  scrollEl.style.removeProperty('width');
+  scrollEl.style.removeProperty('z-index');
+
+  var paper = getReceiptEl(scrollEl);
+  if (paper) {
+    paper.style.removeProperty('transform');
+    paper.style.removeProperty('box-shadow');
+  }
 
   document.documentElement.classList.add('printing');
 
@@ -59,49 +69,15 @@ function onFeedComplete(scrollEl) {
   scrollEl.classList.remove('is-feeding');
   scrollEl.classList.add('is-fed');
   document.documentElement.classList.remove('printing');
-}
 
-function startSway(scrollEl, event) {
-  if (event.animationName !== 'receipt-lift') return;
-  scrollEl.removeEventListener('animationend', scrollEl._onSway);
-  scrollEl.classList.remove('is-floating');
-  scrollEl.classList.add('is-swaying');
-  scrollEl.style.willChange = 'auto';
-}
+  if (!motionEnabled) return;
 
-function cssFloatReceipt(scrollEl) {
-  freezeTransform(scrollEl);
+  var paper = getReceiptEl(scrollEl);
+  if (!paper) return;
 
-  var rect = scrollEl.getBoundingClientRect();
-  var centerX = window.innerWidth / 2;
-  var centerY = window.innerHeight / 2;
-  var originX = rect.left + rect.width / 2;
-  var originY = rect.top + rect.height / 2;
-
-  scrollEl.style.setProperty('--lift-x', centerX - originX + 'px');
-  scrollEl.style.setProperty('--lift-y', centerY - originY + 'px');
-
-  document.body.appendChild(scrollEl);
-  slot.style.height = '0';
-
-  scrollEl.style.position = 'fixed';
-  scrollEl.style.left = rect.left + 'px';
-  scrollEl.style.top = rect.top + 'px';
-  scrollEl.style.width = rect.width + 'px';
-  scrollEl.style.margin = '0';
-  scrollEl.style.zIndex = '20';
-
-  scrollEl._onSway = function (event) {
-    startSway(scrollEl, event);
-  };
-  scrollEl.addEventListener('animationend', scrollEl._onSway);
-
-  requestAnimationFrame(function () {
-    scrollEl.style.removeProperty('animation');
-    scrollEl.style.removeProperty('transform');
-    scrollEl.classList.add('is-floating');
-    scrollEl.classList.remove('is-fed');
-  });
+  var spring = createReceiptSpring(paper);
+  scrollEl._spring = spring;
+  spring.start();
 }
 
 function reprint() {
@@ -114,34 +90,47 @@ function reprint() {
   positionPrinter(newScroll);
   wireReceipt(newScroll);
   startFeed(newScroll);
-  isFloating = false;
+  isDetaching = false;
 }
 
 async function detachReceipt(scrollEl) {
-  if (isFloating || !scrollEl.classList.contains('is-fed')) return;
-  isFloating = true;
+  if (isDetaching || !scrollEl.classList.contains('is-fed')) return;
+  isDetaching = true;
 
-  var handoffRect = scrollEl.getBoundingClientRect();
-  var usedPhysics = false;
-
-  if (usePhysics && physicsReady && physics) {
-    try {
-      var ok = await physics.handoff(scrollEl, handoffRect);
-      if (ok) {
-        scrollEl.remove();
-        slot.style.height = '0';
-        reprint();
-        usedPhysics = true;
-      }
-    } catch (_err) {
-      scrollEl.style.removeProperty('visibility');
-      scrollEl.removeAttribute('aria-hidden');
-    }
+  var spring = scrollEl._spring;
+  if (spring) {
+    spring.stop();
+    scrollEl._spring = null;
   }
 
-  if (usedPhysics) return;
+  var rect = scrollEl.getBoundingClientRect();
+  var paper = getReceiptEl(scrollEl);
 
-  cssFloatReceipt(scrollEl);
+  document.body.appendChild(scrollEl);
+  slot.style.height = '0';
+
+  scrollEl.style.position = 'fixed';
+  scrollEl.style.left = rect.left + 'px';
+  scrollEl.style.top = rect.top + 'px';
+  scrollEl.style.width = rect.width + 'px';
+  scrollEl.style.margin = '0';
+  scrollEl.style.zIndex = '20';
+  scrollEl.classList.add('is-detached');
+  scrollEl.classList.remove('is-fed');
+
+  if (motionEnabled && paper) {
+    var flySpring = createReceiptSpring(paper, {
+      maxX: 1200,
+      maxY: 1200,
+      maxRot: 10,
+      idleAmp: 0,
+    });
+    flySpring.start();
+    await flySpring.flyToViewportCenter();
+    flySpring.stop();
+  }
+
+  scrollEl.remove();
   reprint();
 }
 
@@ -176,14 +165,7 @@ async function boot() {
   scrollTemplate = scroll.innerHTML;
   positionPrinter(scroll);
 
-  if (usePhysics) {
-    physics = createReceiptPhysics({ canvas: '#receipt-canvas' });
-    if (physics) {
-      physicsReady = await physics.init();
-    }
-  }
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (!motionEnabled) {
     document.documentElement.classList.add('motion-off');
     scroll.classList.add('is-fed');
     wireReceipt(scroll);
@@ -192,6 +174,15 @@ async function boot() {
 
   wireReceipt(scroll);
   startFeed(scroll);
+
+  window.addEventListener(
+    'resize',
+    function () {
+      var active = slot.querySelector('.receipt-scroll.is-fed, .receipt-scroll.is-feeding');
+      if (active) positionPrinter(active);
+    },
+    { passive: true }
+  );
 }
 
 boot();

@@ -19,9 +19,10 @@
   document.documentElement.style.setProperty('--receipt-h', receiptHeight + 'px');
   slot.style.height = receiptHeight + 'px';
 
-  function freezeTransform() {
+  function stopFeedAnimation() {
     var computed = getComputedStyle(scroll);
-    scroll.style.animation = 'none';
+    scroll.classList.remove('is-feeding');
+    document.documentElement.classList.remove('printing');
     scroll.style.transform = computed.transform;
     void scroll.offsetHeight;
   }
@@ -30,7 +31,7 @@
     if (floated) return;
     floated = true;
 
-    freezeTransform();
+    stopFeedAnimation();
 
     var rect = scroll.getBoundingClientRect();
     var centerX = window.innerWidth / 2;
@@ -51,13 +52,11 @@
     scroll.style.margin = '0';
     scroll.style.zIndex = '20';
 
-    scroll.classList.remove('is-feeding');
-    document.documentElement.classList.remove('printing');
-
     requestAnimationFrame(function () {
-      scroll.style.removeProperty('animation');
-      scroll.style.transform = 'translate3d(0, 0, 0) rotate(-1deg)';
-      scroll.classList.add('is-floating');
+      requestAnimationFrame(function () {
+        scroll.style.transform = 'translate3d(0, 0, 0) rotate(-1deg)';
+        scroll.classList.add('is-floating');
+      });
     });
   }
 

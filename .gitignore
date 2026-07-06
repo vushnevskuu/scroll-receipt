@@ -23,6 +23,9 @@ web-ext.config.ts
 *.ntvs*
 *.njsproj
 *.sln
-.env
-.env.*
-!.env.example
+apps/extension/.env
+apps/extension/.env.local
+test-results/
+supabase/.temp/
+scripts/deploy-payload-*.json
+scripts/deploy-*-args.json

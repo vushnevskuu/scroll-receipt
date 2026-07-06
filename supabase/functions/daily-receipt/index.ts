@@ -1,11 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { renderEmailReceipt } from '../../../packages/shared/src/email-receipt.ts';
 import {
-  formatReceiptDate,
   generateReceiptNumber,
   getPreviousLocalDate,
-} from '../../../packages/shared/src/format.ts';
-import type { Platform } from '../../../packages/shared/src/types.ts';
+  renderEmailReceipt,
+  type Platform,
+} from './_shared/receipt.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+};
 
 const PLATFORMS: Platform[] = ['instagram', 'youtube', 'tiktok'];
 
@@ -28,7 +32,7 @@ function isReportDueNow(timezone: string, reportTimeLocal: string, now = new Dat
 async function sendResendEmail(to: string, subject: string, html: string, text: string) {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
-  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <receipts@scrollreceipt.app>';
+  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <onboarding@resend.dev>';
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -38,7 +42,21 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   return res.json() as Promise<{ id: string }>;
 }
 
+function authorizeCron(req: Request): boolean {
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  if (!cronSecret) return true;
+  return req.headers.get('x-cron-secret') === cronSecret;
+}
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (!authorizeCron(req)) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+  }
+
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   if (!serviceKey || !supabaseUrl) {
@@ -46,6 +64,8 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
+  const manageUrl = 'https://vushnevskuu.github.io/scroll-receipt/';
+  const deleteUrl = manageUrl;
 
   const { data: profiles, error } = await supabase
     .from('profiles')
@@ -106,8 +126,8 @@ Deno.serve(async (req) => {
         totalViews,
       },
       'ru',
-      `${supabaseUrl}/functions/v1/settings-link`,
-      `${supabaseUrl}/functions/v1/delete-data`,
+      manageUrl,
+      deleteUrl,
     );
 
     try {
@@ -133,6 +153,6 @@ Deno.serve(async (req) => {
   }
 
   return new Response(JSON.stringify({ ok: true, sent }), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
   });
 });

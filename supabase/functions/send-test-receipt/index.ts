@@ -1,6 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { renderEmailReceipt } from '../../../packages/shared/src/email-receipt.ts';
-import type { Platform } from '../../../packages/shared/src/types.ts';
+import { renderEmailReceipt, type Platform } from './_shared/receipt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,7 +10,7 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
 
-  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <receipts@scrollreceipt.app>';
+  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <onboarding@resend.dev>';
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -22,8 +21,7 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Resend error: ${err}`);
+    throw new Error(`Resend error: ${await res.text()}`);
   }
 
   return res.json() as Promise<{ id: string }>;
@@ -53,6 +51,7 @@ Deno.serve(async (req) => {
 
     const locale = (new URL(req.url).searchParams.get('locale') ?? 'ru') as 'ru' | 'en';
     const today = new Date().toISOString().slice(0, 10);
+    const manageUrl = 'https://vushnevskuu.github.io/scroll-receipt/';
 
     const platforms: Record<Platform, { seconds: number; views: number }> = {
       instagram: { seconds: 120, views: 5 },
@@ -66,15 +65,15 @@ Deno.serve(async (req) => {
     const email = renderEmailReceipt(
       {
         date: today,
-        timezone: 'UTC',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         receiptNumber: `SR-TEST-${userData.user.id.slice(0, 4).toUpperCase()}`,
         platforms,
         totalSeconds,
         totalViews,
       },
       locale,
-      `${supabaseUrl.replace('supabase.co', 'app')}/settings`,
-      `${supabaseUrl.replace('supabase.co', 'app')}/delete`,
+      manageUrl,
+      manageUrl,
     );
 
     const result = await sendResendEmail(userData.user.email!, email.subject, email.html, email.text);

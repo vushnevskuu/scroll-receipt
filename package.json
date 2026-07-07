@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @scroll-receipt/extension dev",
     "build": "pnpm --filter @scroll-receipt/shared build && pnpm --filter @scroll-receipt/extension build",
     "zip": "pnpm --filter @scroll-receipt/extension zip",
+    "release:extension": "pnpm build && pnpm zip && cp apps/extension/.output/scroll-receiptextension-2.0.0-chrome.zip docs/scroll-receipt-2.0.0-chrome.zip",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

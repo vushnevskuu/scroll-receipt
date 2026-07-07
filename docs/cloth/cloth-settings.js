@@ -1,6 +1,6 @@
 import { PAPER_PRESET } from './config.js';
 
-var STORAGE_KEY = 'receipt-cloth-preset';
+var STORAGE_KEY = 'receipt-cloth-preset-v2';
 
 export function stiffnessToCompliance(stiffness) {
   var k = Math.max(0, Math.min(100, stiffness));
@@ -56,16 +56,93 @@ export function createClothSettingsPanel(options) {
   title.textContent = 'Receipt physics';
   root.appendChild(title);
 
+  var note = document.createElement('p');
+  note.className = 'cloth-settings-note';
+  note.textContent = 'Higher stiffness keeps the sheet crisper. More wind makes the idle sway stronger while the receipt hangs untouched.';
+  root.appendChild(note);
+
   var fields = [
-    { key: 'structural', label: 'Structural stiffness', type: 'stiffness', presetKey: 'structuralCompliance' },
-    { key: 'shear', label: 'Shear stiffness', type: 'stiffness', presetKey: 'shearCompliance' },
-    { key: 'bend', label: 'Bend stiffness', type: 'stiffness', presetKey: 'bendCompliance' },
-    { key: 'damping', label: 'Damping', type: 'range', min: 0.001, max: 0.15, step: 0.001, presetKey: 'damping' },
-    { key: 'windStrength', label: 'Wind', type: 'range', min: 0, max: 1.5, step: 0.01, presetKey: 'windStrength' },
-    { key: 'grabStiffness', label: 'Grab strength', type: 'range', min: 0.05, max: 1, step: 0.01, presetKey: 'grabStiffness' },
-    { key: 'grabRadius', label: 'Grab radius', type: 'range', min: 1, max: 5, step: 0.1, presetKey: 'grabRadius' },
-    { key: 'gravity', label: 'Gravity', type: 'range', min: -500, max: 0, step: 1, presetKey: 'gravity' },
-    { key: 'iterations', label: 'Solver iterations', type: 'range', min: 1, max: 12, step: 1, presetKey: 'iterations' },
+    {
+      key: 'structural',
+      label: 'Structural stiffness',
+      hint: 'How strongly the receipt resists stretching from top to bottom.',
+      type: 'stiffness',
+      presetKey: 'structuralCompliance',
+    },
+    {
+      key: 'shear',
+      label: 'Shear stiffness',
+      hint: 'How much the sheet skews diagonally when you pull it sideways.',
+      type: 'stiffness',
+      presetKey: 'shearCompliance',
+    },
+    {
+      key: 'bend',
+      label: 'Bend stiffness',
+      hint: 'How easily the paper folds, curls, and keeps a crisp crease.',
+      type: 'stiffness',
+      presetKey: 'bendCompliance',
+    },
+    {
+      key: 'damping',
+      label: 'Damping',
+      hint: 'How quickly the wobble calms down after motion or tearing.',
+      type: 'range',
+      min: 0.001,
+      max: 0.15,
+      step: 0.001,
+      presetKey: 'damping',
+    },
+    {
+      key: 'windStrength',
+      label: 'Wind sway',
+      hint: 'Idle breeze strength while the receipt hangs from the printer.',
+      type: 'range',
+      min: 0,
+      max: 1.5,
+      step: 0.01,
+      presetKey: 'windStrength',
+    },
+    {
+      key: 'grabStiffness',
+      label: 'Grab strength',
+      hint: 'How firmly the paper follows the cursor once you pull it.',
+      type: 'range',
+      min: 0.05,
+      max: 1,
+      step: 0.01,
+      presetKey: 'grabStiffness',
+    },
+    {
+      key: 'grabRadius',
+      label: 'Grab radius',
+      hint: 'How much area around the cursor gets dragged with each pull.',
+      type: 'range',
+      min: 1,
+      max: 5,
+      step: 0.1,
+      presetKey: 'grabRadius',
+    },
+    {
+      key: 'gravity',
+      label: 'Gravity pull',
+      hint: 'How hard the torn receipt drops after you release it.',
+      type: 'range',
+      min: -500,
+      max: 0,
+      step: 1,
+      presetKey: 'gravity',
+    },
+    {
+      key: 'iterations',
+      label: 'Solver iterations',
+      hint: 'Physics accuracy. Higher values feel firmer and more stable.',
+      type: 'range',
+      min: 1,
+      max: 12,
+      step: 1,
+      presetKey: 'iterations',
+    },
   ];
 
   var sliders = {};
@@ -85,6 +162,10 @@ export function createClothSettingsPanel(options) {
     var name = document.createElement('span');
     name.className = 'cloth-settings-label';
     name.textContent = f.label;
+
+    var hint = document.createElement('span');
+    hint.className = 'cloth-settings-hint';
+    hint.textContent = f.hint;
 
     var input = document.createElement('input');
     input.type = 'range';
@@ -108,7 +189,7 @@ export function createClothSettingsPanel(options) {
       input.step = String(f.step);
       var val = current[f.presetKey] != null ? current[f.presetKey] : PAPER_PRESET[f.presetKey];
       input.value = String(val);
-      valueEl.textContent = String(+val);
+      valueEl.textContent = formatSliderValue(input);
     }
 
     input.addEventListener('input', function () {
@@ -120,6 +201,7 @@ export function createClothSettingsPanel(options) {
     });
 
     row.appendChild(name);
+    row.appendChild(hint);
     row.appendChild(input);
     row.appendChild(valueEl);
     root.appendChild(row);
@@ -137,12 +219,12 @@ export function createClothSettingsPanel(options) {
       /* ignore */
     }
     var defaults = {
-      structuralCompliance: 0.0001,
-      shearCompliance: 0.0005,
-      bendCompliance: 0.001,
-      damping: 0.02,
-      windStrength: 0.35,
-      grabStiffness: 0.35,
+      structuralCompliance: 0.00003,
+      shearCompliance: 0.00012,
+      bendCompliance: 0.00032,
+      damping: 0.03,
+      windStrength: 0.24,
+      grabStiffness: 0.42,
       grabRadius: 2.5,
       gravity: -12,
       iterations: 8,
@@ -184,12 +266,19 @@ export function createClothSettingsPanel(options) {
       var inp = rows[r].querySelector('input');
       var valEl = rows[r].querySelector('.cloth-settings-value');
       if (!inp || !valEl) continue;
-      if (inp.dataset.fieldType === 'stiffness') {
-        valEl.textContent = inp.value;
-      } else {
-        valEl.textContent = String(+inp.value);
-      }
+      valEl.textContent = formatSliderValue(inp);
     }
+  }
+
+  function formatSliderValue(input) {
+    if (input.dataset.fieldType === 'stiffness') return input.value;
+
+    var value = parseFloat(input.value);
+    var step = parseFloat(input.step || '1');
+
+    if (step >= 1) return String(Math.round(value));
+    if (step >= 0.1) return value.toFixed(1).replace(/\.0$/, '');
+    return value.toFixed(2).replace(/0$/, '').replace(/\.0$/, '');
   }
 
   function syncUIFromPreset(preset) {

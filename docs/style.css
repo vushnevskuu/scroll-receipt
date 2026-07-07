@@ -65,6 +65,14 @@ body {
   pointer-events: auto;
 }
 
+#receipt-canvas.is-hovering {
+  cursor: grab;
+}
+
+#receipt-canvas.is-dragging {
+  cursor: grabbing;
+}
+
 .receipt-scroll.is-cloth .receipt {
   visibility: hidden;
 }
@@ -265,6 +273,7 @@ body {
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
     0 24px 64px rgba(0, 0, 0, 0.45);
   position: relative;
+  overflow: visible;
 }
 
 .receipt-edge {
@@ -279,54 +288,66 @@ body {
 .receipt-top-perforation,
 .receipt-bottom-perforation {
   position: relative;
+  z-index: 3;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 6px;
-  height: 12px;
-  margin: 0 14px;
-  padding: 0 4px;
-}
-
-.receipt-top-perforation::before,
-.receipt-bottom-perforation::before {
-  content: '';
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  top: 50%;
-  border-top: 1px solid rgba(200, 194, 182, 0.52);
-  transform: translateY(-50%);
+  gap: 0;
+  height: 0;
+  margin: 0 18px;
+  padding: 0 2px;
+  pointer-events: none;
 }
 
 .receipt-top-perforation span,
 .receipt-bottom-perforation span {
   position: relative;
-  z-index: 1;
-  flex: 0 0 12px;
-  width: 12px;
-  height: 12px;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--page);
-  box-shadow: 0 0 0 1px rgba(214, 208, 198, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(12, 12, 10, 0.22),
+    0 0 0 2px rgba(246, 242, 234, 0.06);
+}
+
+.receipt.has-real-perforation .receipt-top-perforation span,
+.receipt.has-real-perforation .receipt-bottom-perforation span {
+  visibility: hidden;
+}
+
+.receipt-top-perforation span::after,
+.receipt-bottom-perforation span::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 1px 1px rgba(0, 0, 0, 0.2) inset;
+  opacity: 0.92;
 }
 
 .receipt-top-perforation {
-  margin-top: -6px;
-  margin-bottom: 8px;
+  display: none;
 }
 
 .receipt-bottom-perforation {
-  margin-top: 8px;
-  margin-bottom: -6px;
+  margin-top: 10px;
+  margin-bottom: 0;
 }
 
 .receipt-top-perforation span {
-  transform: translateY(-52%);
+  transform: translateY(-18%);
 }
 
 .receipt-bottom-perforation span {
-  transform: translateY(52%);
+  transform: translateY(0);
+}
+
+.receipt-edge-bottom {
+  height: 8px;
 }
 
 .receipt-head {
@@ -601,7 +622,7 @@ body {
 }
 
 .fine {
-  margin: 12px 0 0;
+  margin: 4px 0 0;
   font-size: 9px;
   line-height: 1.6;
   letter-spacing: 0.04em;
@@ -681,22 +702,37 @@ body {
 
 .cloth-settings-title {
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   color: #9f9;
+}
+
+.cloth-settings-note {
+  margin: 0 0 12px;
+  color: rgba(176, 255, 188, 0.72);
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .cloth-settings-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 2px 8px;
-  margin-bottom: 10px;
+  grid-template-rows: auto auto auto;
+  gap: 3px 8px;
+  margin-bottom: 12px;
   align-items: center;
 }
 
 .cloth-settings-label {
   grid-column: 1 / -1;
-  color: #9a9;
+  color: #b9eabf;
+}
+
+.cloth-settings-hint {
+  grid-column: 1 / -1;
+  margin: -1px 0 1px;
+  color: rgba(188, 255, 200, 0.68);
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .cloth-settings-range {

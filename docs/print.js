@@ -1,5 +1,6 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=46';
-import { createReceiptSpring } from './receipt-spring.js?v=46';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=62';
+import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
+import { createReceiptSpring } from './receipt-spring.js?v=50';
 
 var FEED_MS = 2600;
 var REPRINT_DELAY_MS = 2200;
@@ -30,6 +31,7 @@ function positionPrinter(scrollEl) {
   var height = scrollEl.offsetHeight;
   document.documentElement.style.setProperty('--receipt-h', height + 'px');
   slot.style.height = height + 'px';
+  applyReceiptPerforation(getReceiptEl(scrollEl));
 
   var chassis = document.querySelector('.printer-chassis');
   var chassisHeight = chassis ? chassis.offsetHeight : 38;
@@ -48,6 +50,102 @@ function triggerDownload(href) {
   a.href = href || DOWNLOAD_HREF;
   a.download = '';
   a.click();
+}
+
+function canUseImmediateCloth() {
+  return USE_CLOTH_PHYSICS && canvas && motionEnabled;
+}
+
+function measureFeedTargetRect(scrollEl) {
+  var paper = getReceiptEl(scrollEl);
+  if (!paper) return null;
+
+  var rect = paper.getBoundingClientRect();
+  var needsFeedOffset = !scrollEl.classList.contains('is-fed') && !scrollEl.classList.contains('is-feeding');
+  var feedOffset = needsFeedOffset ? scrollEl.offsetHeight : 0;
+
+  return {
+    left: rect.left,
+    top: rect.top + feedOffset,
+    width: rect.width,
+    height: rect.height,
+    bottom: rect.bottom + feedOffset,
+  };
+}
+
+function scheduleDomFeedComplete(scrollEl) {
+  function finishFeed() {
+    if (scrollEl.classList.contains('is-fed')) return;
+    void onFeedComplete(scrollEl);
+  }
+
+  scrollEl.addEventListener('animationend', function onFeedEnd(event) {
+    if (event.animationName !== 'paper-feed') return;
+    scrollEl.removeEventListener('animationend', onFeedEnd);
+    finishFeed();
+  });
+
+  setTimeout(finishFeed, FEED_MS + 200);
+}
+
+function animateClothFeed(scrollEl) {
+  var startedAt = performance.now();
+  canvas.style.pointerEvents = 'none';
+
+  function frame(now) {
+    if (!clothInstance) return;
+    var progress = Math.min(1, (now - startedAt) / FEED_MS);
+    clothInstance.setRevealProgress(progress);
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+      return;
+    }
+
+    clothInstance.setRevealProgress(1);
+    canvas.style.pointerEvents = 'auto';
+    scrollEl.classList.add('is-fed');
+    document.documentElement.classList.remove('printing');
+  }
+
+  requestAnimationFrame(frame);
+}
+
+async function startClothFeed(scrollEl) {
+  var targetRect = measureFeedTargetRect(scrollEl);
+  if (!targetRect) {
+    requestAnimationFrame(function () {
+      scrollEl.classList.add('is-feeding');
+      scheduleDomFeedComplete(scrollEl);
+    });
+    return;
+  }
+
+  clothInstance = createReceiptCloth({
+    canvas: '#receipt-canvas',
+    onTear: function (href) {
+      void tearReceipt(scrollEl, href);
+    },
+  });
+
+  var ok = await clothInstance.init(scrollEl, { rect: targetRect });
+  if (!ok) {
+    if (clothInstance) {
+      clothInstance.destroy();
+      clothInstance = null;
+    }
+    requestAnimationFrame(function () {
+      scrollEl.classList.add('is-feeding');
+      scheduleDomFeedComplete(scrollEl);
+    });
+    return;
+  }
+
+  clothInstance.hideDom(scrollEl);
+  scrollEl.classList.add('is-cloth');
+  clothInstance.setRevealProgress(0.015);
+  clothInstance.start();
+  animateClothFeed(scrollEl);
 }
 
 function stopInteractions(scrollEl) {
@@ -73,6 +171,7 @@ function startFeed(scrollEl) {
   scrollEl.style.removeProperty('top');
   scrollEl.style.removeProperty('width');
   scrollEl.style.removeProperty('z-index');
+  canvas.style.removeProperty('pointer-events');
 
   var paper = getReceiptEl(scrollEl);
   if (paper) {
@@ -86,8 +185,14 @@ function startFeed(scrollEl) {
 
   document.documentElement.classList.add('printing');
 
+  if (canUseImmediateCloth()) {
+    void startClothFeed(scrollEl);
+    return;
+  }
+
   requestAnimationFrame(function () {
     scrollEl.classList.add('is-feeding');
+    scheduleDomFeedComplete(scrollEl);
   });
 }
 
@@ -178,19 +283,6 @@ function wireReceipt(scrollEl) {
       void tearReceipt(scrollEl, tearZone.getAttribute('data-download-href') || DOWNLOAD_HREF);
     });
   }
-
-  function finishFeed() {
-    if (scrollEl.classList.contains('is-fed')) return;
-    void onFeedComplete(scrollEl);
-  }
-
-  scrollEl.addEventListener('animationend', function onFeedEnd(event) {
-    if (event.animationName !== 'paper-feed') return;
-    scrollEl.removeEventListener('animationend', onFeedEnd);
-    finishFeed();
-  });
-
-  setTimeout(finishFeed, FEED_MS + 200);
 }
 
 async function boot() {
@@ -199,8 +291,8 @@ async function boot() {
   await document.fonts.ready;
 
   updateDate(scroll);
-  scrollTemplate = scroll.innerHTML;
   positionPrinter(scroll);
+  scrollTemplate = scroll.innerHTML;
 
   if (!motionEnabled) {
     document.documentElement.classList.add('motion-off');

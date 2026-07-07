@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=46';
-import { createXPBDSolver } from './xpbd-solver.js?v=46';
-import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=46';
-import { createClothSettingsPanel } from './cloth-settings.js?v=46';
+import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=58';
+import { createXPBDSolver } from './xpbd-solver.js?v=50';
+import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=60';
+import { createClothSettingsPanel } from './cloth-settings.js?v=58';
+import { applyReceiptPerforation, buildReceiptAlphaMask } from './receipt-perforation.js?v=63';
 
 var MAX_DT = PAPER_PRESET.maxFrameDt;
 var CAMERA_DISTANCE = 780;
@@ -88,6 +89,29 @@ export function createReceiptCloth(options) {
   var dropStartedAt = 0;
   var pendingDropHref = '';
   var tearCallbackSent = false;
+  var freeFallActive = false;
+  var freeFallVelocity = { x: 0, y: 0, spin: 0 };
+  var revealProgress = 1;
+  var revealRect = null;
+  var hoverState = {
+    active: false,
+    targetX: 0,
+    targetY: 0,
+    targetZ: 0,
+    currentX: 0,
+    currentY: 0,
+    currentZ: 0,
+    prevX: 0,
+    prevY: 0,
+    targetStepX: 0,
+    targetStepY: 0,
+    currentStepX: 0,
+    currentStepY: 0,
+    radius: 0,
+    currentRadius: 0,
+    cx: 0,
+    cy: 0,
+  };
 
   function setupRenderer() {
     try {
@@ -132,18 +156,31 @@ export function createReceiptCloth(options) {
     uv.needsUpdate = true;
   }
 
-  function buildMesh(texture, width, height, segW, segH) {
+  function buildMesh(texture, alphaCanvas, width, height, segW, segH) {
     var geometry = new THREE.PlaneGeometry(width, height, segW, segH);
     fixReceiptUvs(geometry);
     texture.flipY = false;
     texture.needsUpdate = true;
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    alphaCanvas = alphaCanvas || null;
+
+    var alphaTexture = null;
+    if (alphaCanvas) {
+      alphaTexture = new THREE.CanvasTexture(alphaCanvas);
+      alphaTexture.flipY = false;
+      alphaTexture.needsUpdate = true;
+      alphaTexture.colorSpace = THREE.NoColorSpace;
+      alphaTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    }
 
     var material = new THREE.MeshBasicMaterial({
       map: texture,
+      alphaMap: alphaTexture,
       color: 0xffffff,
       side: THREE.DoubleSide,
+      transparent: true,
+      alphaTest: 0.02,
     });
     material.toneMapped = false;
 
@@ -223,8 +260,8 @@ export function createReceiptCloth(options) {
       for (var ix = 0; ix < solver.cols; ix++) {
         var si = solver.idx(ix, iy);
         var gi = solver.geomIdx(ix, iy);
-        arr[gi * 3] = solver.pos[si * 3] + meshCenter.x;
-        arr[gi * 3 + 1] = solver.pos[si * 3 + 1] + meshCenter.y;
+        arr[gi * 3] = solver.pos[si * 3] + mesh.position.x;
+        arr[gi * 3 + 1] = solver.pos[si * 3 + 1] + mesh.position.y;
         arr[gi * 3 + 2] = 2;
         var r = 0.2;
         var g = 0.8;
@@ -272,9 +309,150 @@ export function createReceiptCloth(options) {
     if (computeNormals) mesh.geometry.computeVertexNormals();
   }
 
+  function updateRevealClip() {
+    if (!canvas || !revealRect || revealProgress >= 0.999) {
+      canvas.style.removeProperty('clip-path');
+      return;
+    }
+
+    var topInset = Math.max(0, Math.floor(revealRect.top - 4));
+    var revealBottom = revealRect.top + Math.max(10, revealRect.height * revealProgress);
+    var bottomInset = Math.max(0, Math.ceil(window.innerHeight - revealBottom));
+    canvas.style.clipPath = 'inset(' + topInset + 'px 0 ' + bottomInset + 'px 0)';
+  }
+
+  function setCanvasInteractionState(state) {
+    canvas.classList.toggle('is-hovering', state === 'hover');
+    canvas.classList.toggle('is-dragging', state === 'drag');
+  }
+
+  function resetHover(immediate) {
+    hoverState.active = false;
+    hoverState.targetStepX = 0;
+    hoverState.targetStepY = 0;
+    hoverState.radius = 0;
+    hoverState.targetZ = 0;
+
+    if (immediate) {
+      hoverState.targetX = 0;
+      hoverState.targetY = 0;
+      hoverState.currentX = 0;
+      hoverState.currentY = 0;
+      hoverState.currentZ = 0;
+      hoverState.currentStepX = 0;
+      hoverState.currentStepY = 0;
+      hoverState.currentRadius = 0;
+      hoverState.prevX = 0;
+      hoverState.prevY = 0;
+    } else {
+      hoverState.targetX = hoverState.currentX;
+      hoverState.targetY = hoverState.currentY;
+    }
+  }
+
+  function updateHoverTarget(hit) {
+    if (!hit || !hit.uv || !mesh || detachedFromPrinter || releasedDetachedReceipt) {
+      resetHover(false);
+      setCanvasInteractionState('');
+      return;
+    }
+
+    var localX = hit.point.x - mesh.position.x;
+    var localY = hit.point.y - mesh.position.y;
+    var hoverVertex = solver.nearestVertex(localX, localY);
+    var hoverGrid = solver.vertexToGrid(hoverVertex);
+
+    if (!hoverState.active) {
+      hoverState.currentX = localX;
+      hoverState.currentY = localY;
+      hoverState.prevX = localX;
+      hoverState.prevY = localY;
+    }
+
+    hoverState.active = true;
+    hoverState.targetStepX = localX - hoverState.prevX;
+    hoverState.targetStepY = localY - hoverState.prevY;
+    hoverState.prevX = localX;
+    hoverState.prevY = localY;
+    hoverState.targetX = localX;
+    hoverState.targetY = localY;
+    hoverState.targetZ = 8 + Math.max(0, 1 - Math.abs(hit.uv.x - 0.5) * 1.2) * 3.5;
+    hoverState.radius = Math.max(7, (PAPER_PRESET.grabRadius + 1.5) * 4.6);
+    hoverState.cx = hoverGrid.ix;
+    hoverState.cy = Math.min(hoverGrid.iy, solver.rows - 3);
+    setCanvasInteractionState('hover');
+  }
+
+  function applyHoverField(dt) {
+    if (!solver || grabPointerId !== null || detachedFromPrinter || releasedDetachedReceipt) return;
+
+    var easing = 1 - Math.exp(-dt * 12);
+    hoverState.currentX += (hoverState.targetX - hoverState.currentX) * easing;
+    hoverState.currentY += (hoverState.targetY - hoverState.currentY) * easing;
+    hoverState.currentZ += (hoverState.targetZ - hoverState.currentZ) * easing;
+    hoverState.currentStepX += (hoverState.targetStepX - hoverState.currentStepX) * easing;
+    hoverState.currentStepY += (hoverState.targetStepY - hoverState.currentStepY) * easing;
+    hoverState.currentRadius += (hoverState.radius - hoverState.currentRadius) * easing;
+
+    if (!hoverState.active && hoverState.currentRadius < 0.08 && Math.abs(hoverState.currentZ) < 0.08) {
+      hoverState.currentRadius = 0;
+      hoverState.currentZ = 0;
+      hoverState.currentStepX = 0;
+      hoverState.currentStepY = 0;
+      return;
+    }
+
+    var radius = hoverState.currentRadius;
+    if (radius <= 0.08) return;
+
+    var hoverX = hoverState.currentX;
+    var hoverY = hoverState.currentY;
+    var hoverZ = hoverState.currentZ;
+    var dragX = clamp(hoverState.currentStepX, -2.4, 2.4);
+    var dragY = clamp(hoverState.currentStepY, -2.4, 2.4);
+    var influenceScale = Math.min(1, dt * 42);
+    var minY = solver.rows - 2;
+
+    for (var iy = Math.max(0, hoverState.cy - Math.ceil(radius)); iy < Math.min(solver.rows, hoverState.cy + Math.ceil(radius) + 1); iy++) {
+      if (iy >= minY) continue;
+
+      for (var ix = Math.max(0, hoverState.cx - Math.ceil(radius)); ix < Math.min(solver.cols, hoverState.cx + Math.ceil(radius) + 1); ix++) {
+        var vi = solver.idx(ix, iy);
+        if (solver.invMass[vi] <= 0) continue;
+
+        var dx = ix - hoverState.cx;
+        var dy = iy - hoverState.cy;
+        var dist = Math.sqrt(dx * dx + dy * dy * 0.85);
+        if (dist > radius) continue;
+
+        var falloff = Math.max(0, 1 - dist / radius);
+        var pinch = falloff * falloff * (3 - 2 * falloff);
+        var pi = vi * 3;
+        var targetZ = hoverZ * pinch;
+
+        solver.pos[pi] += (hoverX - solver.pos[pi]) * pinch * 0.015 * influenceScale + dragX * pinch * 0.045;
+        solver.pos[pi + 1] += (hoverY - solver.pos[pi + 1]) * pinch * 0.015 * influenceScale + dragY * pinch * 0.045;
+        solver.pos[pi + 2] += (targetZ - solver.pos[pi + 2]) * 0.16 * influenceScale;
+
+        solver.prev[pi] = solver.pos[pi] - dragX * pinch * 0.07;
+        solver.prev[pi + 1] = solver.pos[pi + 1] - dragY * pinch * 0.07;
+        solver.prev[pi + 2] = solver.pos[pi + 2] - targetZ * 0.015;
+      }
+    }
+
+    hoverState.targetStepX *= 0.8;
+    hoverState.targetStepY *= 0.8;
+    hoverState.currentStepX *= 0.86;
+    hoverState.currentStepY *= 0.86;
+  }
+
   function physicsStep(dt) {
+    if (freeFallActive) {
+      applyFreeFall(dt);
+      return;
+    }
+    applyHoverField(dt);
     solver.integrate(dt);
-    if (releasedDetachedReceipt) applyDetachedDrift(dt);
     solver.resetNaN();
   }
 
@@ -404,16 +582,25 @@ export function createReceiptCloth(options) {
     if (!solver) return;
     var dropStep = DROP_DRIFT_PX_PER_SEC * dt;
     for (var iy = 0; iy < solver.rows; iy++) {
-      var rowT = iy / Math.max(1, solver.rows - 1);
       for (var ix = 0; ix < solver.cols; ix++) {
         var vi = solver.idx(ix, iy);
         if (solver.invMass[vi] <= 0) continue;
         var pi = vi * 3;
-        var drift = dropStep * (0.74 + (1 - rowT) * 0.26);
-        solver.pos[pi + 1] -= drift;
-        solver.prev[pi + 1] -= drift * 0.72;
+        solver.pos[pi + 1] -= dropStep;
+        solver.prev[pi + 1] -= dropStep * 0.72;
       }
     }
+  }
+
+  function applyFreeFall(dt) {
+    if (!mesh) return;
+
+    freeFallVelocity.y += PAPER_PRESET.gravity * 42 * dt;
+    mesh.position.x += freeFallVelocity.x * dt;
+    mesh.position.y += freeFallVelocity.y * dt;
+    mesh.rotation.z += freeFallVelocity.spin * dt;
+    freeFallVelocity.x *= 0.995;
+    freeFallVelocity.spin *= 0.992;
   }
 
   function onPointerDown(event) {
@@ -429,16 +616,18 @@ export function createReceiptCloth(options) {
 
     dragPlane.setFromNormalAndCoplanarPoint(planeNormal, hit.point);
 
-    var lx = hit.point.x - meshCenter.x;
-    var ly = hit.point.y - meshCenter.y;
+    var lx = hit.point.x - mesh.position.x;
+    var ly = hit.point.y - mesh.position.y;
     var vi = solver.nearestVertex(lx, ly);
     var g = solver.vertexToGrid(vi);
     if (g.iy >= solver.rows - 2) {
       g.iy = Math.max(0, solver.rows - 4);
     }
 
+    resetHover(true);
     grabPointerId = event.pointerId;
     canvas.setPointerCapture(event.pointerId);
+    setCanvasInteractionState('drag');
     grabAnchor = {
       cx: g.ix,
       cy: g.iy,
@@ -476,12 +665,17 @@ export function createReceiptCloth(options) {
   }
 
   function onPointerMove(event) {
-    if (grabPointerId !== event.pointerId || !grabAnchor) return;
+    if (grabPointerId === null || !grabAnchor) {
+      if (releasedDetachedReceipt) return;
+      updateHoverTarget(raycastMesh(event));
+      return;
+    }
+    if (grabPointerId !== event.pointerId) return;
     screenToPointer(event);
     raycaster.setFromCamera(pointer, camera);
     if (!raycaster.ray.intersectPlane(dragPlane, hitPoint)) return;
-    var localX = hitPoint.x - meshCenter.x;
-    var localY = hitPoint.y - meshCenter.y;
+    var localX = hitPoint.x - mesh.position.x;
+    var localY = hitPoint.y - mesh.position.y;
     var stepX = localX - grabAnchor.prevX;
     var stepY = localY - grabAnchor.prevY;
     grabAnchor.prevX = localX;
@@ -512,6 +706,7 @@ export function createReceiptCloth(options) {
     solver.clearGrab(clearOptions);
     grabPointerId = null;
     grabAnchor = null;
+    setCanvasInteractionState('');
     if (event) {
       try {
         canvas.releasePointerCapture(event.pointerId);
@@ -528,13 +723,15 @@ export function createReceiptCloth(options) {
     }
     pendingDropHref = grabAnchor.tearHref || pendingDropHref;
     releasedDetachedReceipt = true;
+    freeFallActive = true;
+    resetHover(true);
+    setCanvasInteractionState('');
+    freeFallVelocity.x = clamp(grabAnchor.lastStepX * 12, -180, 180);
+    freeFallVelocity.y = Math.min(-320, grabAnchor.lastStepY * 10 - 280);
+    freeFallVelocity.spin = clamp(-grabAnchor.lastStepX * 0.08, -1, 1);
     dropStartedAt = performance.now();
     tearCallbackSent = false;
-    endGrab(event, {
-      preserveMotion: true,
-      carryX: clamp(grabAnchor.lastStepX * 0.6, -7, 7),
-      carryY: clamp(grabAnchor.lastStepY * 0.65, -9, 8) - 6.5,
-    });
+    endGrab(event, null);
   }
 
   function onPointerUp(event) {
@@ -553,11 +750,18 @@ export function createReceiptCloth(options) {
     endGrab(event, null);
   }
 
+  function onPointerLeave() {
+    if (grabPointerId !== null) return;
+    resetHover(false);
+    setCanvasInteractionState('');
+  }
+
   function attachInteraction() {
     canvas.addEventListener('pointerdown', onPointerDown);
     canvas.addEventListener('pointermove', onPointerMove);
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointercancel', onPointerCancel);
+    canvas.addEventListener('pointerleave', onPointerLeave);
     window.addEventListener('blur', onBlur);
   }
 
@@ -566,6 +770,8 @@ export function createReceiptCloth(options) {
       releaseDetachedReceipt(null);
       return;
     }
+    resetHover(true);
+    setCanvasInteractionState('');
     endGrab(null, null);
   }
 
@@ -574,6 +780,7 @@ export function createReceiptCloth(options) {
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', onPointerUp);
     canvas.removeEventListener('pointercancel', onPointerCancel);
+    canvas.removeEventListener('pointerleave', onPointerLeave);
     window.removeEventListener('blur', onBlur);
   }
 
@@ -589,7 +796,7 @@ export function createReceiptCloth(options) {
   }
 
   return {
-    init: async function (sourceScroll) {
+    init: async function (sourceScroll, options) {
       if (!setupRenderer()) return false;
 
       scene = new THREE.Scene();
@@ -625,15 +832,31 @@ export function createReceiptCloth(options) {
       if (!article) return false;
       detachedFromPrinter = false;
       releasedDetachedReceipt = false;
+      freeFallActive = false;
+      freeFallVelocity.x = 0;
+      freeFallVelocity.y = 0;
+      freeFallVelocity.spin = 0;
       dropStartedAt = 0;
       pendingDropHref = '';
       tearCallbackSent = false;
       grabPointerId = null;
       grabAnchor = null;
+      resetHover(true);
+      setCanvasInteractionState('');
 
-      var rect = article.getBoundingClientRect();
+      var providedRect = options && options.rect;
+      var rect = providedRect || article.getBoundingClientRect();
+      var perforation = applyReceiptPerforation(article);
       var captured = await captureReceiptTexture(article);
       uvRegions = measureUvRegions(article);
+      revealRect = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+      revealProgress = 1;
+      updateRevealClip();
 
       var grid = gridForViewport();
       var cx = pxToWorldX(rect.left + rect.width * 0.5);
@@ -647,7 +870,8 @@ export function createReceiptCloth(options) {
       solver.setPrinterBar(barLocal);
 
       var tex = new THREE.CanvasTexture(captured.canvas);
-      buildMesh(tex, captured.width, captured.height, grid.segW, grid.segH);
+      var alphaCanvas = buildReceiptAlphaMask(captured.width, captured.height, perforation);
+      buildMesh(tex, alphaCanvas, captured.width, captured.height, grid.segW, grid.segH);
       mesh.position.set(cx, cy, 0);
       syncMeshFromSolver(true);
 
@@ -718,16 +942,30 @@ export function createReceiptCloth(options) {
       if (mesh) {
         mesh.geometry.dispose();
         mesh.material.map.dispose();
+        if (mesh.material.alphaMap) mesh.material.alphaMap.dispose();
         mesh.material.dispose();
       }
       if (shadowMesh) shadowMesh.material.dispose();
       if (renderer) renderer.dispose();
+      freeFallActive = false;
+      freeFallVelocity.x = 0;
+      freeFallVelocity.y = 0;
+      freeFallVelocity.spin = 0;
+      resetHover(true);
+      setCanvasInteractionState('');
       canvas.classList.remove('is-active');
+      canvas.style.removeProperty('clip-path');
+      canvas.style.removeProperty('pointer-events');
     },
 
     hideDom: function (scrollEl) {
       var paper = scrollEl.querySelector('.receipt');
       if (paper) paper.style.visibility = 'hidden';
+    },
+
+    setRevealProgress: function (progress) {
+      revealProgress = clamp(progress, 0, 1);
+      updateRevealClip();
     },
   };
 }

@@ -450,7 +450,7 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
 
     if (!grab && !softRelease) {
-      var pull = PAPER_PRESET.shapeMemory * (printerAttached ? 1 : 0.28);
+      var pull = PAPER_PRESET.shapeMemory * (printerAttached ? 1 : 0);
       for (var ri = 0; ri < count; ri++) {
         if (invMass[ri] <= 0) continue;
         var rx = ri * 3;
@@ -556,6 +556,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         var carryX = options && Number.isFinite(options.carryX) ? options.carryX : 0;
         var carryY = options && Number.isFinite(options.carryY) ? options.carryY : 0;
         var preserveMotion = !!(options && options.preserveMotion);
+        var uniformCarry = !!(options && options.uniformCarry);
         releaseCooldown = 12;
         softRelease = true;
         softReleaseSteps = 0;
@@ -563,7 +564,7 @@ export function createXPBDSolver(segW, segH, width, height) {
           if (invMass[i] <= 0) continue;
           var px = i * 3;
           if (preserveMotion) {
-            var rowWeight = 0.35 + (1 - Math.floor(i / cols) / Math.max(1, rows - 1)) * 0.65;
+            var rowWeight = uniformCarry ? 1 : 0.35 + (1 - Math.floor(i / cols) / Math.max(1, rows - 1)) * 0.65;
             prev[px] = pos[px] - carryX * rowWeight;
             prev[px + 1] = pos[px + 1] - carryY * rowWeight;
           } else {

@@ -79,17 +79,52 @@ function copyComputedStyles(sourceNode, targetNode) {
   }
 }
 
+function sanitizeCapturePerforation(root) {
+  if (!root) return;
+}
+
+function mountCaptureClone(article, width, height) {
+  var clone = article.cloneNode(true);
+  copyComputedStyles(article, clone);
+  clone.style.margin = '0';
+  clone.style.width = width + 'px';
+  clone.style.height = height + 'px';
+  clone.style.transform = 'none';
+  clone.style.boxShadow = 'none';
+  clone.style.filter = 'none';
+  sanitizeCapturePerforation(clone);
+
+  var mount = document.createElement('div');
+  mount.style.position = 'fixed';
+  mount.style.left = '-200vw';
+  mount.style.top = '0';
+  mount.style.width = width + 'px';
+  mount.style.height = height + 'px';
+  mount.style.overflow = 'visible';
+  mount.style.pointerEvents = 'none';
+  mount.style.opacity = '1';
+  mount.style.zIndex = '-1';
+  mount.appendChild(clone);
+  document.body.appendChild(mount);
+
+  return { mount: mount, clone: clone };
+}
+
+function punchPerforationHoles(targetCanvas, article, width, height) {
+  if (!targetCanvas || !article || !width || !height) return;
+}
+
 export async function captureReceiptTexture(article) {
   var w = Math.max(article.offsetWidth, 320);
   var h = Math.max(article.offsetHeight, 480);
   var dpr = Math.min(window.devicePixelRatio, 2);
   var paperColor = window.getComputedStyle(article).backgroundColor || '#f6f2ea';
-  var captureId = 'receipt-capture-' + Date.now();
-  article.setAttribute('data-receipt-capture-id', captureId);
+  var captureNodes = mountCaptureClone(article, w, h);
+  var captureRoot = captureNodes.clone;
 
   try {
     var html2canvas = await loadHtml2Canvas();
-    var rendered = await html2canvas(article, {
+    var rendered = await html2canvas(captureRoot, {
       backgroundColor: paperColor,
       foreignObjectRendering: false,
       imageTimeout: 0,
@@ -101,19 +136,11 @@ export async function captureReceiptTexture(article) {
       height: h,
       windowWidth: window.innerWidth,
       windowHeight: window.innerHeight,
-      onclone: function (doc) {
-        var clonedArticle = doc.querySelector('[data-receipt-capture-id="' + captureId + '"]');
-        if (!clonedArticle) return;
-        clonedArticle.style.boxShadow = 'none';
-        clonedArticle.style.transform = 'none';
-        clonedArticle.style.filter = 'none';
-      },
     });
 
-    article.removeAttribute('data-receipt-capture-id');
+    captureNodes.mount.remove();
     return { canvas: rendered, width: w, height: h };
   } catch (_err) {
-    article.removeAttribute('data-receipt-capture-id');
     /* fall back to inline-svg capture below */
   }
 
@@ -123,12 +150,7 @@ export async function captureReceiptTexture(article) {
   var ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  var clone = article.cloneNode(true);
-  copyComputedStyles(article, clone);
-  clone.style.margin = '0';
-  clone.style.width = w + 'px';
-  clone.style.height = h + 'px';
-  clone.style.transform = 'none';
+  var clone = captureRoot.cloneNode(true);
   var wrap = document.createElement('div');
   wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
   wrap.style.width = w + 'px';
@@ -164,6 +186,7 @@ export async function captureReceiptTexture(article) {
     img.src = url;
   });
 
+  captureNodes.mount.remove();
   return { canvas: canvas, width: w, height: h };
 }
 

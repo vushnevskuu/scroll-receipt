@@ -30,7 +30,12 @@ function positionPrinter(scrollEl) {
   var height = scrollEl.offsetHeight;
   document.documentElement.style.setProperty('--receipt-h', height + 'px');
   slot.style.height = height + 'px';
-  var mouthTop = Math.max(44, Math.min(72, Math.round(window.innerHeight * 0.08)));
+
+  var chassis = document.querySelector('.printer-chassis');
+  var chassisHeight = chassis ? chassis.offsetHeight : 38;
+  // Printer mouth sits above the receipt; center the receipt body on the viewport.
+  var mouthTop = Math.round(window.innerHeight * 0.5 - height * 0.5 - chassisHeight);
+  mouthTop = Math.max(12, Math.min(mouthTop, window.innerHeight - height - chassisHeight - 12));
   document.documentElement.style.setProperty('--mouth-top', mouthTop + 'px');
 }
 

@@ -47,7 +47,7 @@ pnpm build
 1. Open extension **Options**
 2. Accept privacy → enter email → OTP code
 3. Click **Send test receipt** to verify email
-4. Daily receipt arrives at **00:05 local time** for **yesterday's** activity
+4. Daily receipt arrives at **18:00 local time** for **yesterday's** activity
 
 ## Troubleshooting
 

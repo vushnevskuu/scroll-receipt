@@ -35,7 +35,7 @@ No. Browser activity only.
 Yes. By default everything stays on device. Email sync sends only daily totals, not URLs or titles.
 
 **When do email receipts arrive?**
-Default 00:05 local time for the previous day (configurable after email verification).
+Default 18:00 local time for the previous day (after email verification in Options).
 
 ## Optional
 

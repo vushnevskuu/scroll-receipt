@@ -7,7 +7,7 @@ Scroll Receipt is a Manifest V3 browser extension built with [WXT](https://wxt.d
 ```
 Content Scripts (per platform)
   → Active Viewing Detector
-  → Heartbeat messages (1/sec when qualified)
+  → Qualified playback deltas (flushed every 5s)
 Background Service Worker
   → Session Engine
   → Daily Aggregation
@@ -38,7 +38,8 @@ Time is counted only when **all** conditions are true:
 - Raw content IDs exist in memory only
 - Persisted content references use daily salted SHA-256 hashes
 - No URLs, captions, usernames, or messages stored
-- No network requests in MVP
+- No network requests unless the user enables email receipts
+- Optional sync sends only daily totals per platform (seconds + views)
 
 ## Entrypoints
 

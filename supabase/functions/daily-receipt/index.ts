@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 
   const { data: profiles, error } = await supabase
     .from('profiles')
-    .select('user_id, email, timezone, report_enabled, report_time_local')
+    .select('user_id, email, timezone, locale, report_enabled, report_time_local')
     .eq('report_enabled', true);
 
   if (error) {
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         totalSeconds,
         totalViews,
       },
-      'ru',
+      profile.locale === 'ru' ? 'ru' : 'en',
       manageUrl,
       deleteUrl,
     );

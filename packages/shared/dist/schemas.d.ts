@@ -36,6 +36,10 @@ export declare const profileUpdateSchema: z.ZodObject<{
     timezone: z.ZodOptional<z.ZodString>;
     reportEnabled: z.ZodOptional<z.ZodBoolean>;
     reportTimeLocal: z.ZodOptional<z.ZodString>;
+    locale: z.ZodOptional<z.ZodEnum<{
+        ru: "ru";
+        en: "en";
+    }>>;
 }, z.core.$strip>;
 export declare const testReceiptSchema: z.ZodObject<{
     locale: z.ZodDefault<z.ZodEnum<{

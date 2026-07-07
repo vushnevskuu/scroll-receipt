@@ -137,6 +137,7 @@ export async function updateProfile(partial: {
   timezone?: string;
   reportEnabled?: boolean;
   reportTimeLocal?: string;
+  locale?: 'ru' | 'en';
 }): Promise<void> {
   const supabase = await getAuthenticatedSupabase();
   if (!supabase) return;
@@ -144,9 +145,16 @@ export async function updateProfile(partial: {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return;
 
-  await supabase.from('profiles').upsert({
+  const payload: Record<string, string | boolean> = {
     user_id: user.user.id,
     email: user.user.email ?? '',
-    ...partial,
-  });
+  };
+
+  if (partial.timezone !== undefined) payload.timezone = partial.timezone;
+  if (partial.reportEnabled !== undefined) payload.report_enabled = partial.reportEnabled;
+  if (partial.reportTimeLocal !== undefined) payload.report_time_local = partial.reportTimeLocal;
+  if (partial.locale !== undefined) payload.locale = partial.locale;
+
+  const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'user_id' });
+  if (error) throw error;
 }

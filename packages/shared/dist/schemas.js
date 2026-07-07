@@ -16,6 +16,7 @@ export const profileUpdateSchema = z.object({
     timezone: z.string().min(1).max(64).optional(),
     reportEnabled: z.boolean().optional(),
     reportTimeLocal: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    locale: z.enum(['ru', 'en']).optional(),
 });
 export const testReceiptSchema = z.object({
     locale: z.enum(['ru', 'en']).default('ru'),

@@ -13,6 +13,10 @@ Load unpacked in Chrome: `apps/extension/.output/chrome-mv3`
 
 **Landing + download:** https://vushnevskuu.github.io/scroll-receipt/
 
+The published zip already includes the backend URL needed for OTP sign-in and email receipts.
+After install, local tracking starts in the browser right away. To receive daily email receipts,
+open **Options**, enter your email, and verify the OTP code.
+
 ## Commands
 
 | Command | Description |
@@ -33,7 +37,8 @@ Load unpacked in Chrome: `apps/extension/.output/chrome-mv3`
 
 ## Optional email receipts (v2)
 
-Copy `.env.example` to `apps/extension/.env` and configure Supabase + Resend. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Copy `apps/extension/.env.example` to `apps/extension/.env` and configure Supabase + Resend.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/BACKEND_SETUP.md](docs/BACKEND_SETUP.md).
 
 ## Docs
 

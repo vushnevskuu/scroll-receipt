@@ -161,6 +161,7 @@ export async function updateProfile(partial: {
   timezone?: string;
   reportEnabled?: boolean;
   reportTimeLocal?: string;
+  locale?: 'ru' | 'en';
 }) {
   return sendMessage({ type: 'UPDATE_PROFILE', payload: partial });
 }

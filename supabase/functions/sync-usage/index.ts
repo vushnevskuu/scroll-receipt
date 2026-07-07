@@ -68,13 +68,20 @@ Deno.serve(async (req) => {
       if (error) throw error;
     }
 
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('report_enabled, report_time_local, locale')
+      .eq('user_id', userId)
+      .maybeSingle();
+
     await supabase.from('profiles').upsert(
       {
         user_id: userId,
         email: userData.user.email ?? '',
         timezone: body.records[0]?.timezone ?? 'UTC',
-        report_time_local: '18:00',
-        report_enabled: true,
+        report_time_local: existingProfile?.report_time_local ?? '18:00',
+        report_enabled: existingProfile?.report_enabled ?? true,
+        locale: existingProfile?.locale ?? 'en',
       },
       { onConflict: 'user_id' },
     );

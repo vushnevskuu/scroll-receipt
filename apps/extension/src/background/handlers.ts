@@ -59,6 +59,14 @@ async function getTodaySummary(): Promise<TodaySummary> {
   return summary;
 }
 
+async function syncTodayAggregate(force = false): Promise<void> {
+  const today = getLocalDateString();
+  const stored = await storageRepo.getDailyAggregate(today);
+  const checkpoint = await storageRepo.getCheckpoint();
+  const aggregate = mergeLiveCheckpoint(stored, checkpoint, today);
+  await syncDailyUsage(aggregate, force);
+}
+
 async function getWeeklySummaryData(): Promise<WeeklySummary> {
   const { start, end } = getWeekRange();
   const aggregates = (await storageRepo.getDailyAggregates()).filter(
@@ -166,19 +174,26 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
     case 'VERIFY_OTP': {
       const result = await verifyOtp(message.payload.email, message.payload.token);
       if (result.ok) {
-        await applyAutoReceiptSchedule({ syncProfile: true });
         await storageRepo.updateSettings({
           onboardingComplete: true,
           email: message.payload.email,
           emailVerified: true,
           trackingEnabled: true,
+          reportEnabled: true,
         });
+        await applyAutoReceiptSchedule({ syncProfile: true });
+        await syncTodayAggregate(true);
       }
       return result;
     }
 
     case 'SIGN_OUT':
       await signOut();
+      await storageRepo.updateSettings({
+        emailVerified: false,
+        onboardingComplete: false,
+        reportEnabled: false,
+      });
       return { ok: true };
 
     case 'UPDATE_PROFILE': {
@@ -190,6 +205,9 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
       }
       if (message.payload.reportTimeLocal) {
         partial.dailyReceiptTime = message.payload.reportTimeLocal;
+      }
+      if (message.payload.locale) {
+        partial.locale = message.payload.locale;
       }
       if (Object.keys(partial).length > 0) {
         await storageRepo.updateSettings(partial);
@@ -214,11 +232,13 @@ export function registerBackgroundHandlers(): void {
   chrome.alarms.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     if (alarm.name === ALARM_NAMES.STALE_SESSION || alarm.name === ALARM_NAMES.CHECKPOINT) {
       await sessionEngine.finalizeStaleSessions();
+      await syncTodayAggregate();
     }
 
     if (alarm.name === ALARM_NAMES.DAILY_RECEIPT) {
       await sessionEngine.finalizeStaleSessions();
       await sessionEngine.regenerateAggregates();
+      await syncTodayAggregate(true);
       const hasNotifications = await chrome.permissions.contains({ permissions: ['notifications'] });
       if (hasNotifications) {
         chrome.notifications.create({
@@ -235,6 +255,7 @@ export function registerBackgroundHandlers(): void {
     await sessionEngine.initialize();
     const settings = await applyAutoReceiptSchedule({ syncProfile: true });
     scheduleAlarms(settings);
+    await syncTodayAggregate();
   })();
 }
 

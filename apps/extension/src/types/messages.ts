@@ -95,7 +95,15 @@ export const extensionMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('SIGN_IN_OTP'), payload: z.object({ email: z.string().email() }) }),
   z.object({ type: z.literal('VERIFY_OTP'), payload: z.object({ email: z.string().email(), token: z.string().min(4) }) }),
   z.object({ type: z.literal('SIGN_OUT') }),
-  z.object({ type: z.literal('UPDATE_PROFILE'), payload: z.object({ timezone: z.string().optional(), reportEnabled: z.boolean().optional(), reportTimeLocal: z.string().optional() }) }),
+  z.object({
+    type: z.literal('UPDATE_PROFILE'),
+    payload: z.object({
+      timezone: z.string().optional(),
+      reportEnabled: z.boolean().optional(),
+      reportTimeLocal: z.string().optional(),
+      locale: z.enum(['ru', 'en']).optional(),
+    }),
+  }),
   z.object({ type: z.literal('FINALIZE_STALE_SESSIONS') }),
   z.object({ type: z.literal('REGENERATE_AGGREGATES') }),
 ]);

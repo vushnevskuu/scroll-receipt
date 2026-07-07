@@ -46,11 +46,12 @@ export async function applyAutoReceiptSchedule(options?: {
       })
     : current;
 
-  if (options?.syncProfile && updated.emailVerified) {
+  if (options?.syncProfile) {
     await updateProfile({
       timezone: schedule.timezone,
       reportEnabled: updated.reportEnabled,
       reportTimeLocal: schedule.dailyReceiptTime,
+      locale: updated.locale,
     });
   }
 

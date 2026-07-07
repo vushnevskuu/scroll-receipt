@@ -9,6 +9,7 @@ import {
   sendTestReceipt,
   signInWithOtp,
   signOut,
+  updateProfile,
   useSettings,
   verifyOtp,
 } from '@src/hooks/useExtensionData';
@@ -30,6 +31,11 @@ function OptionsApp() {
   useEffect(() => {
     if (settings?.email) setEmail(settings.email);
   }, [settings?.email]);
+
+  useEffect(() => {
+    setOtp('');
+    setOtpSent(false);
+  }, [email]);
 
   if (!settings) {
     return <div className="options-shell p-6 text-xs uppercase">Loading...</div>;
@@ -106,7 +112,54 @@ function OptionsApp() {
     setBusy(true);
     const result = await sendTestReceipt(locale);
     setBusy(false);
-    setMessage(result.ok ? s('testReceipt') : (result.error ?? 'Error'));
+    setMessage(
+      result.ok
+        ? locale === 'ru'
+          ? 'Тестовый чек отправлен'
+          : 'Test receipt sent'
+        : (result.error ?? 'Error'),
+    );
+  };
+
+  const handleReportEnabledChange = async (nextValue: boolean) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await updateSettings({ reportEnabled: nextValue });
+      await updateProfile({
+        reportEnabled: nextValue,
+        reportTimeLocal: settings.dailyReceiptTime,
+        timezone: settings.timezone,
+        locale: settings.locale,
+      });
+      setMessage(
+        nextValue
+          ? locale === 'ru'
+            ? 'Ежедневные email-чеки включены'
+            : 'Daily email receipts enabled'
+          : locale === 'ru'
+            ? 'Ежедневные email-чеки выключены'
+            : 'Daily email receipts disabled',
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await signOut();
+      await refresh();
+      setMessage(locale === 'ru' ? 'Email-рассылка отключена' : 'Email receipts disconnected');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -196,7 +249,8 @@ function OptionsApp() {
             <input
               type="checkbox"
               checked={settings.reportEnabled}
-              onChange={(e) => void updateSettings({ reportEnabled: e.target.checked })}
+              disabled={busy}
+              onChange={(e) => void handleReportEnabledChange(e.target.checked)}
             />
             {s('reportEnabled')}
           </label>
@@ -208,7 +262,12 @@ function OptionsApp() {
           >
             {s('testReceipt')}
           </button>
-          <button type="button" className="text-[10px] uppercase text-ink-faded underline" onClick={() => void signOut()}>
+          <button
+            type="button"
+            disabled={busy}
+            className="text-[10px] uppercase text-ink-faded underline"
+            onClick={() => void handleSignOut()}
+          >
             Sign out
           </button>
         </section>
@@ -219,6 +278,51 @@ function OptionsApp() {
           <h2 className="text-xs font-bold uppercase">{s('email')}</h2>
           <p className="text-xs normal-case text-ink-faded">{settings.email}</p>
           <p className="text-[10px] normal-case text-ink-faded">{scheduleLabel}</p>
+          <p className="text-[10px] normal-case text-ink-faded">
+            {backendReady
+              ? locale === 'ru'
+                ? 'Трекинг уже работает локально. Подтвердите email, чтобы получать ежедневные чеки.'
+                : 'Local tracking already works. Verify your email to start daily receipts.'
+              : locale === 'ru'
+                ? 'Локальный трекинг работает. Email-чеки станут доступны после подключения сервера.'
+                : 'Local tracking works. Email receipts will be available once the server is connected.'}
+          </p>
+          {backendReady && (
+            <div className="space-y-3">
+              {!otpSent ? (
+                <button
+                  type="button"
+                  disabled={busy || !setupReady}
+                  onClick={() => void handleSendOtp()}
+                  className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                >
+                  {s('sendOtp')}
+                </button>
+              ) : (
+                <>
+                  <label className="block text-xs uppercase">
+                    {s('otp')}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={busy || otp.length < 4 || !setupReady}
+                    onClick={() => void handleVerify()}
+                    className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                  >
+                    {s('verify')}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </section>
       )}
 

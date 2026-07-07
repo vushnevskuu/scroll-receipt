@@ -23,7 +23,9 @@ Scroll Receipt measures active short-form viewing on supported websites. It does
 
 ## Storage
 
-All data is stored in `chrome.storage.local` on your device. No cloud sync in MVP. No analytics SDKs. No tracking pixels.
+All data is stored in `chrome.storage.local` on your device by default. If you enable email
+receipts, the extension syncs only daily totals per platform (seconds + view counts) so the server
+can email your receipt. No analytics SDKs. No tracking pixels.
 
 ## Controls
 

@@ -25,6 +25,7 @@ export interface UserProfile {
   userId: string;
   email: string;
   timezone: string;
+  locale: 'ru' | 'en';
   reportEnabled: boolean;
   reportTimeLocal: string;
   emailVerified: boolean;

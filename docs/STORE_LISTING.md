@@ -18,7 +18,7 @@ Scroll Receipt measures confirmed playback on Instagram Reels, YouTube Shorts, a
 - Real playback tracking (focus + visible + playing)
 - Neutral daily receipt — informative, not guilt-driven
 - Local-first: your data stays on your device
-- Optional email summary at 00:05 for yesterday's totals
+- Optional daily email summary at 18:00 local time for yesterday's totals
 - Pause, export, or delete anytime
 
 **What we track**

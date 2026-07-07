@@ -23,6 +23,24 @@ describe('platform adapters', () => {
     expect(adapter.matchesCurrentPage()).toBe(true);
   });
 
+  it('detects youtube shorts feed routes', () => {
+    const adapter = createYouTubeAdapter();
+    Object.defineProperty(window, 'location', {
+      value: new URL('https://www.youtube.com/shorts'),
+      writable: true,
+    });
+    expect(adapter.matchesCurrentPage()).toBe(true);
+  });
+
+  it('detects tiktok home routes', () => {
+    const adapter = createTikTokAdapter();
+    Object.defineProperty(window, 'location', {
+      value: new URL('https://www.tiktok.com/'),
+      writable: true,
+    });
+    expect(adapter.matchesCurrentPage()).toBe(true);
+  });
+
   it('detects tiktok foryou routes', () => {
     const adapter = createTikTokAdapter();
     Object.defineProperty(window, 'location', {

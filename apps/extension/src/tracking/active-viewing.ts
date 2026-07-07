@@ -223,6 +223,17 @@ export class ActiveViewingDetector {
     this.state.contentDurationSeconds = content?.durationSeconds ?? null;
   }
 
+  private isPlaybackQualified(): boolean {
+    if (!this.observedVideo) return false;
+    if (this.state.timeAdvancing) return true;
+    // Some players delay timeupdate; readyState >= 2 means we have current frame data.
+    return (
+      this.state.isPlaying &&
+      !this.state.isBuffering &&
+      this.observedVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+    );
+  }
+
   private isQualifiedActiveViewing(): boolean {
     if (!this.adapter.matchesCurrentPage()) return false;
     if (!this.state.tabActive || !this.state.windowFocused || !this.state.documentVisible) {
@@ -232,7 +243,7 @@ export class ActiveViewingDetector {
     if (!this.state.contentId || !this.observedVideo) return false;
     if (this.state.visibilityRatio < VISIBILITY_THRESHOLD) return false;
     if (!this.state.isPlaying || this.state.isBuffering) return false;
-    if (!this.state.timeAdvancing) return false;
+    if (!this.isPlaybackQualified()) return false;
     return true;
   }
 
@@ -248,6 +259,7 @@ export class ActiveViewingDetector {
     const now = performance.now();
     if (this.playbackStartedAt === null) {
       this.playbackStartedAt = now;
+      this.accumulatedMs += 1000;
       return;
     }
 
@@ -298,14 +310,44 @@ export class ActiveViewingDetector {
 }
 
 export function initPlatformTracking(adapter: PlatformAdapter): () => void {
-  if (!adapter.matchesCurrentPage()) {
-    return () => undefined;
-  }
+  let detectorCleanup: (() => void) | null = null;
 
-  try {
-    const detector = new ActiveViewingDetector(adapter, adapter.getPlatform());
-    return detector.start();
-  } catch {
-    return () => undefined;
-  }
+  const stopDetector = (): void => {
+    if (!detectorCleanup) return;
+    detectorCleanup();
+    detectorCleanup = null;
+  };
+
+  const startDetector = (): void => {
+    if (detectorCleanup) return;
+    try {
+      const detector = new ActiveViewingDetector(adapter, adapter.getPlatform());
+      detectorCleanup = detector.start();
+    } catch {
+      detectorCleanup = null;
+    }
+  };
+
+  const sync = (): void => {
+    if (adapter.matchesCurrentPage()) startDetector();
+    else stopDetector();
+  };
+
+  sync();
+
+  const onNavigate = (): void => {
+    sync();
+  };
+
+  window.addEventListener('popstate', onNavigate);
+  window.addEventListener('yt-navigate-finish', onNavigate as EventListener);
+
+  const routePoll = window.setInterval(sync, 800);
+
+  return () => {
+    stopDetector();
+    window.removeEventListener('popstate', onNavigate);
+    window.removeEventListener('yt-navigate-finish', onNavigate as EventListener);
+    window.clearInterval(routePoll);
+  };
 }

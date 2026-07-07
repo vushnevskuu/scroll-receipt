@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { t } from '@scroll-receipt/shared';
-import { DailyReceipt, EmptyReceipt } from '@src/components/receipt/DailyReceipt';
-import { buildReceiptData } from '@src/receipts/equivalent-engine';
 import {
   pauseTracking,
   resumeTracking,
@@ -11,8 +9,9 @@ import {
 } from '@src/hooks/useExtensionData';
 import { formatDuration, formatDurationCompact } from '@src/utils/format';
 import { PLATFORM_LABELS } from '@src/utils/constants';
-import '@src/styles/receipt.css';
 import './style.css';
+
+const PLATFORMS = ['youtube', 'instagram', 'tiktok'] as const;
 
 function PopupApp() {
   const { status } = useTrackingStatus(1500);
@@ -20,151 +19,106 @@ function PopupApp() {
   const { settings } = useSettings();
   const [busy, setBusy] = useState(false);
 
-  const receipt = useMemo(() => {
-    if (!summary?.aggregate || !settings) return null;
-    if (summary.aggregate.activeSeconds === 0) return null;
-    return buildReceiptData(summary.aggregate, settings.equivalentRates);
-  }, [summary, settings]);
+  const aggregate = summary?.aggregate;
+  const checkpoint = summary?.checkpoint;
+  const isPaused = !status?.trackingEnabled;
+  const locale = settings?.locale ?? 'en';
+
+  const platformRows = useMemo(() => {
+    if (!aggregate) return [];
+    return PLATFORMS.map((platform) => ({
+      platform,
+      seconds: aggregate.platformTotals[platform] ?? 0,
+    })).filter((row) => row.seconds > 0);
+  }, [aggregate]);
 
   const toggleTracking = async () => {
     setBusy(true);
-    if (status?.trackingEnabled) {
-      await pauseTracking();
-    } else {
-      await resumeTracking();
-    }
+    if (status?.trackingEnabled) await pauseTracking();
+    else await resumeTracking();
     await refresh();
     setBusy(false);
-  };
-
-  const openDashboard = () => {
-    const url = chrome.runtime.getURL('/dashboard.html');
-    void chrome.tabs.create({ url });
   };
 
   const openOptions = () => {
     void chrome.runtime.openOptionsPage();
   };
 
-  if (settings && !settings.onboardingComplete) {
-    const locale = settings.locale;
+  if (loading && !summary) {
     return (
-      <div className="popup-shell p-4">
-        <p className="text-center text-xs font-bold uppercase tracking-widest">{t(locale, 'onboardingTitle')}</p>
-        <p className="mt-3 text-xs leading-relaxed text-ink-faded">{t(locale, 'setupRequired')}</p>
-        <button
-          type="button"
-          onClick={openOptions}
-          className="mt-4 w-full border border-ink bg-paper py-2 text-xs font-bold uppercase"
-        >
-          {t(locale, 'completeSetup')}
-        </button>
+      <div className="popup-shell">
+        <p className="popup-muted">Loading…</p>
       </div>
     );
   }
 
-  if (loading && !summary) {
-    return <div className="popup-shell p-4 text-xs uppercase text-ink-faded">Loading...</div>;
-  }
-
-  const isPaused = !status?.trackingEnabled;
-  const aggregate = summary?.aggregate;
-  const checkpoint = summary?.checkpoint;
-
   return (
     <div className="popup-shell">
-      <header className="border-b border-divider/30 px-4 py-3 text-center">
-        <p className="text-sm font-bold uppercase tracking-[0.25em]">Scroll Receipt</p>
-        <p className="mt-1 text-[10px] uppercase tracking-widest text-ink-faded">
-          Attention Accounting System
-        </p>
+      <header className="popup-header">
+        <div>
+          <p className="popup-title">Scroll Receipt</p>
+          <p className="popup-subtitle">Short-form watch time</p>
+        </div>
+        <button
+          type="button"
+          className="popup-icon-btn"
+          onClick={openOptions}
+          aria-label={t(locale, 'completeSetup')}
+          title="Settings"
+        >
+          ⚙
+        </button>
       </header>
 
-      <div className="px-4 py-3">
-        <div
-          className={`inline-flex items-center gap-2 rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
-            isPaused
-              ? 'border-stamp-red/40 text-stamp-red'
-              : 'border-success-green/40 text-success-green'
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${isPaused ? 'bg-stamp-red' : 'bg-success-green'}`}
-            aria-hidden="true"
-          />
-          {isPaused ? 'Tracking Paused' : 'Tracking Active'}
-        </div>
+      {settings && !settings.onboardingComplete && (
+        <button type="button" className="popup-banner" onClick={openOptions}>
+          {t(locale, 'completeSetup')}
+        </button>
+      )}
 
-        {checkpoint && status?.trackingEnabled && (
-          <div className="mt-3 text-xs uppercase">
-            <p className="text-ink-faded">Current Session</p>
-            <p className="font-bold tabular-nums">
-              {PLATFORM_LABELS[checkpoint.platform]} · {formatDurationCompact(checkpoint.activeSeconds)}
-            </p>
-          </div>
-        )}
-
-        <div className="mt-4 space-y-1 text-xs uppercase tabular-nums">
-          <div className="flex justify-between">
-            <span className="text-ink-faded">Today Total</span>
-            <span className="font-bold">{formatDuration(aggregate?.activeSeconds ?? 0)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-ink-faded">Videos Viewed</span>
-            <span>{aggregate?.videosViewed ?? 0}</span>
-          </div>
-        </div>
-
-        {aggregate && (
-          <div className="mt-3 space-y-1 border-t border-divider/30 pt-3 text-[10px] uppercase tabular-nums">
-            {(Object.entries(aggregate.platformTotals) as Array<
-              ['youtube' | 'instagram' | 'tiktok', number]
-            >)
-              .filter(([, s]) => s > 0)
-              .map(([platform, seconds]) => (
-                <div key={platform} className="flex justify-between text-ink-faded">
-                  <span>{PLATFORM_LABELS[platform]}</span>
-                  <span>{formatDurationCompact(seconds)}</span>
-                </div>
-              ))}
-          </div>
+      <div className="popup-status" role="status" aria-live="polite">
+        <span className={`popup-dot ${isPaused ? 'is-paused' : 'is-active'}`} aria-hidden="true" />
+        <span>{isPaused ? 'Paused' : 'Tracking'}</span>
+        {checkpoint && !isPaused && (
+          <span className="popup-status-session">
+            {PLATFORM_LABELS[checkpoint.platform]} · {formatDurationCompact(checkpoint.activeSeconds)}
+          </span>
         )}
       </div>
 
-      <div className="space-y-2 border-t border-divider/30 px-4 py-3">
+      <section className="popup-hero" aria-label="Today total">
+        <p className="popup-hero-value">{formatDuration(aggregate?.activeSeconds ?? 0)}</p>
+        <p className="popup-hero-label">today</p>
+      </section>
+
+      <section className="popup-platforms" aria-label="By platform">
+        {platformRows.length > 0 ? (
+          platformRows.map(({ platform, seconds }) => (
+            <div key={platform} className="popup-platform-row">
+              <span>{PLATFORM_LABELS[platform]}</span>
+              <span className="popup-platform-time">{formatDurationCompact(seconds)}</span>
+            </div>
+          ))
+        ) : (
+          <p className="popup-empty">
+            {isPaused
+              ? 'Resume tracking to count Reels, Shorts, and TikTok.'
+              : 'Open Reels, Shorts, or TikTok in this browser to start counting.'}
+          </p>
+        )}
+      </section>
+
+      <footer className="popup-footer">
+        <p className="popup-meta">{aggregate?.videosViewed ?? 0} videos counted</p>
         <button
           type="button"
-          onClick={openDashboard}
-          className="w-full border border-ink bg-paper py-2 text-xs font-bold uppercase tracking-widest hover:bg-paper-secondary"
-        >
-          Open Full Receipt
-        </button>
-        <button
-          type="button"
+          className="popup-action"
           disabled={busy}
           onClick={() => void toggleTracking()}
-          className="w-full border border-divider py-2 text-xs uppercase tracking-widest text-ink-faded hover:text-ink"
         >
-          {isPaused ? 'Resume Tracking' : 'Pause Tracking'}
+          {isPaused ? 'Resume' : 'Pause'}
         </button>
-      </div>
-
-      <div className="max-h-[420px] overflow-y-auto px-1 pb-3">
-        {receipt ? (
-          <DailyReceipt receipt={receipt} animate={false} showReclaim={false} />
-        ) : (
-          <EmptyReceipt
-            title={isPaused ? 'Tracking Is Paused' : 'No Short-Form Activity Yet'}
-            description={
-              isPaused
-                ? 'Resume tracking to continue measuring active short-form viewing.'
-                : 'Watch Reels, TikTok, or YouTube Shorts in this browser and your receipt will appear automatically.'
-            }
-          />
-        )}
-      </div>
+      </footer>
     </div>
   );
 }

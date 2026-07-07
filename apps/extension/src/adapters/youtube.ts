@@ -13,7 +13,9 @@ export function createYouTubeAdapter(): PlatformAdapter {
 
   return {
     matchesCurrentPage(): boolean {
-      return /youtube\.com$/i.test(window.location.hostname) && SHORTS_PATH.test(window.location.pathname);
+      if (!/youtube\.com$/i.test(window.location.hostname)) return false;
+      const path = window.location.pathname;
+      return SHORTS_PATH.test(path) || path === '/shorts' || path.startsWith('/shorts/');
     },
 
     getPlatform: () => 'youtube',

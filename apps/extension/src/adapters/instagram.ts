@@ -14,7 +14,11 @@ export function createInstagramAdapter(): PlatformAdapter {
     matchesCurrentPage(): boolean {
       if (!/instagram\.com$/i.test(window.location.hostname)) return false;
       const path = window.location.pathname;
-      return path.startsWith('/reels') || REEL_PATH.test(path);
+      if (path.startsWith('/reels') || REEL_PATH.test(path)) return true;
+      if (path === '/' || path === '/explore' || path.startsWith('/explore/')) {
+        return this.getActiveVideoElement() !== null;
+      }
+      return false;
     },
 
     getPlatform: () => 'instagram',

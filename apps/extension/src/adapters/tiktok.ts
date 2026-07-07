@@ -14,7 +14,13 @@ export function createTikTokAdapter(): PlatformAdapter {
     matchesCurrentPage(): boolean {
       if (!/tiktok\.com$/i.test(window.location.hostname)) return false;
       const path = window.location.pathname;
-      return FORYOU_PATH.test(path) || VIDEO_PATH.test(path);
+      return (
+        FORYOU_PATH.test(path) ||
+        VIDEO_PATH.test(path) ||
+        path === '/' ||
+        path === '' ||
+        path.startsWith('/foryou')
+      );
     },
 
     getPlatform: () => 'tiktok',

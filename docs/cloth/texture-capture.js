@@ -2,15 +2,15 @@ export function measureUvRegions(article) {
   var rect = article.getBoundingClientRect();
   var regions = {};
 
-  var download = article.querySelector('.btn-primary');
-  if (download) {
-    var r = download.getBoundingClientRect();
-    regions.download = {
-      u0: (r.left - rect.left) / rect.width,
-      v0: 1 - (r.bottom - rect.top) / rect.height,
-      u1: (r.right - rect.left) / rect.width,
-      v1: 1 - (r.top - rect.top) / rect.height,
-      href: download.getAttribute('href'),
+  var tearZone = article.querySelector('.receipt-tear-zone');
+  if (tearZone) {
+    var tz = tearZone.getBoundingClientRect();
+    regions.tear = {
+      u0: 0,
+      v0: (tz.top - rect.top) / rect.height,
+      u1: 1,
+      v1: (tz.bottom - rect.top) / rect.height,
+      href: tearZone.getAttribute('data-download-href') || '',
     };
   }
 
@@ -20,9 +20,9 @@ export function measureUvRegions(article) {
     var r = a.getBoundingClientRect();
     regions.links.push({
       u0: (r.left - rect.left) / rect.width,
-      v0: 1 - (r.bottom - rect.top) / rect.height,
+      v0: (r.top - rect.top) / rect.height,
       u1: (r.right - rect.left) / rect.width,
-      v1: 1 - (r.top - rect.top) / rect.height,
+      v1: (r.bottom - rect.top) / rect.height,
       href: a.getAttribute('href'),
       label: a.textContent.trim(),
     });
@@ -33,22 +33,90 @@ export function measureUvRegions(article) {
 
 export function hitUvRegion(regions, u, v) {
   if (!regions) return null;
-  if (regions.download && u >= regions.download.u0 && u <= regions.download.u1 && v >= regions.download.v0 && v <= regions.download.v1) {
-    return { type: 'download', href: regions.download.href };
-  }
   for (var i = 0; i < regions.links.length; i++) {
     var L = regions.links[i];
     if (u >= L.u0 && u <= L.u1 && v >= L.v0 && v <= L.v1) {
       return { type: 'link', href: L.href, label: L.label };
     }
   }
+  if (regions.tear && u >= regions.tear.u0 && u <= regions.tear.u1 && v >= regions.tear.v0 && v <= regions.tear.v1) {
+    return { type: 'tear', href: regions.tear.href, v0: regions.tear.v0 };
+  }
   return null;
+}
+
+var html2canvasLoader = null;
+
+async function loadHtml2Canvas() {
+  if (!html2canvasLoader) {
+    html2canvasLoader = import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm').then(function (mod) {
+      return mod.default || mod;
+    });
+  }
+  return html2canvasLoader;
+}
+
+function copyComputedStyles(sourceNode, targetNode) {
+  if (!sourceNode || !targetNode) return;
+  if (sourceNode.nodeType !== Node.ELEMENT_NODE || targetNode.nodeType !== Node.ELEMENT_NODE) return;
+
+  var computed = window.getComputedStyle(sourceNode);
+  var cssText = '';
+
+  for (var i = 0; i < computed.length; i++) {
+    var prop = computed[i];
+    cssText += prop + ':' + computed.getPropertyValue(prop) + ';';
+  }
+
+  targetNode.style.cssText = cssText;
+
+  var sourceChildren = sourceNode.children;
+  var targetChildren = targetNode.children;
+  var count = Math.min(sourceChildren.length, targetChildren.length);
+
+  for (var j = 0; j < count; j++) {
+    copyComputedStyles(sourceChildren[j], targetChildren[j]);
+  }
 }
 
 export async function captureReceiptTexture(article) {
   var w = Math.max(article.offsetWidth, 320);
   var h = Math.max(article.offsetHeight, 480);
   var dpr = Math.min(window.devicePixelRatio, 2);
+  var paperColor = window.getComputedStyle(article).backgroundColor || '#f6f2ea';
+  var captureId = 'receipt-capture-' + Date.now();
+  article.setAttribute('data-receipt-capture-id', captureId);
+
+  try {
+    var html2canvas = await loadHtml2Canvas();
+    var rendered = await html2canvas(article, {
+      backgroundColor: paperColor,
+      foreignObjectRendering: false,
+      imageTimeout: 0,
+      logging: false,
+      removeContainer: true,
+      scale: dpr,
+      useCORS: true,
+      width: w,
+      height: h,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      onclone: function (doc) {
+        var clonedArticle = doc.querySelector('[data-receipt-capture-id="' + captureId + '"]');
+        if (!clonedArticle) return;
+        clonedArticle.style.boxShadow = 'none';
+        clonedArticle.style.transform = 'none';
+        clonedArticle.style.filter = 'none';
+      },
+    });
+
+    article.removeAttribute('data-receipt-capture-id');
+    return { canvas: rendered, width: w, height: h };
+  } catch (_err) {
+    article.removeAttribute('data-receipt-capture-id');
+    /* fall back to inline-svg capture below */
+  }
+
   var canvas = document.createElement('canvas');
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
@@ -56,9 +124,16 @@ export async function captureReceiptTexture(article) {
   ctx.scale(dpr, dpr);
 
   var clone = article.cloneNode(true);
-  clone.style.cssText = 'margin:0;box-shadow:none;width:' + w + 'px;background:#f6f2ea;color:#1a1916;font-family:IBM Plex Mono,monospace;';
+  copyComputedStyles(article, clone);
+  clone.style.margin = '0';
+  clone.style.width = w + 'px';
+  clone.style.height = h + 'px';
+  clone.style.transform = 'none';
   var wrap = document.createElement('div');
   wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  wrap.style.width = w + 'px';
+  wrap.style.height = h + 'px';
+  wrap.style.background = paperColor;
   wrap.appendChild(clone);
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="' +
@@ -73,7 +148,7 @@ export async function captureReceiptTexture(article) {
   await new Promise(function (resolve, reject) {
     var img = new Image();
     img.onload = function () {
-      ctx.fillStyle = '#f6f2ea';
+      ctx.fillStyle = paperColor;
       ctx.fillRect(0, 0, w, h);
       try {
         ctx.drawImage(img, 0, 0, w, h);

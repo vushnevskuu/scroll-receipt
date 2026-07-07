@@ -14,6 +14,11 @@ declare const messages: {
         readonly empty: "Пока нет активности";
         readonly onboardingTitle: "Scroll Receipt";
         readonly onboardingDesc: "Считает время просмотра Reels, Shorts и TikTok только в браузере.";
+        readonly onboardingEmailHint: "На этот адрес будут приходить ежедневные чеки.";
+        readonly onboardingAutoSchedule: "Часовой пояс определяется автоматически. Чек за вчера приходит в 18:00 по вашему локальному времени.";
+        readonly reportSchedule: "Расписание чека";
+        readonly completeSetup: "Завершить настройку";
+        readonly setupRequired: "Укажите email для ежедневных чеков.";
         readonly email: "Email";
         readonly sendOtp: "Отправить код";
         readonly otp: "Код из письма";
@@ -41,6 +46,11 @@ declare const messages: {
         readonly empty: "No activity yet";
         readonly onboardingTitle: "Scroll Receipt";
         readonly onboardingDesc: "Counts Reels, Shorts, and TikTok watch time in your browser only.";
+        readonly onboardingEmailHint: "Daily receipts will be sent to this address.";
+        readonly onboardingAutoSchedule: "Timezone is detected automatically. Yesterday's receipt arrives at 18:00 local time.";
+        readonly reportSchedule: "Receipt schedule";
+        readonly completeSetup: "Complete setup";
+        readonly setupRequired: "Email is required for daily receipts.";
         readonly email: "Email";
         readonly sendOtp: "Send code";
         readonly otp: "Verification code";

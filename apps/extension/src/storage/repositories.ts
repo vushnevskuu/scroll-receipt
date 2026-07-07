@@ -10,7 +10,7 @@ import {
   RETENTION_DAYS_DEFAULT,
 } from '@src/utils/constants';
 import { generateDailySalt, generateId } from '@src/utils/hash';
-import { getLocalTimezone } from '@src/utils/format';
+import { DEFAULT_DAILY_RECEIPT_TIME, getLocalTimezone } from '@scroll-receipt/shared';
 import { getStorageItem, removeStorageItem, setStorageItem } from '@src/utils/storage';
 
 const KEYS = {
@@ -34,7 +34,7 @@ export function createDefaultSettings(): TrackingSettings {
     trackingEnabled: true,
     enabledPlatforms: ['youtube', 'instagram', 'tiktok'],
     idleDetectionEnabled: true,
-    dailyReceiptTime: '00:05',
+    dailyReceiptTime: DEFAULT_DAILY_RECEIPT_TIME,
     retentionDays: RETENTION_DAYS_DEFAULT,
     equivalentRates: { ...DEFAULT_EQUIVALENT_RATES },
     onboardingComplete: false,

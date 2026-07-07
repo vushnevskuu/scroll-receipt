@@ -1,5 +1,6 @@
 import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { t } from '@scroll-receipt/shared';
 import { DailyReceipt, EmptyReceipt } from '@src/components/receipt/DailyReceipt';
 import { ReceiptDivider } from '@src/components/receipt/ReceiptDivider';
 import { ReceiptDottedLine } from '@src/components/receipt/ReceiptLine';
@@ -83,19 +84,17 @@ function DashboardApp() {
             {!settings?.onboardingComplete && (
               <ReceiptPaper className="mb-6">
                 <p className="text-center text-xs font-bold uppercase tracking-widest">
-                  Your Activity Stays On This Device
+                  {settings ? t(settings.locale, 'onboardingTitle') : 'Scroll Receipt'}
                 </p>
                 <p className="mt-3 text-xs leading-relaxed text-ink-faded">
-                  Scroll Receipt measures active short-form viewing on supported websites. It does
-                  not read messages, comments, captions, searches, passwords, or unrelated browsing
-                  activity.
+                  {settings ? t(settings.locale, 'setupRequired') : 'Complete setup to receive daily email receipts.'}
                 </p>
                 <button
                   type="button"
                   className="mt-4 w-full border border-ink py-2 text-xs font-bold uppercase"
-                  onClick={() => void updateSettings({ onboardingComplete: true })}
+                  onClick={() => void chrome.runtime.openOptionsPage()}
                 >
-                  Continue
+                  {settings ? t(settings.locale, 'completeSetup') : 'Complete setup'}
                 </button>
               </ReceiptPaper>
             )}
@@ -191,16 +190,10 @@ function DashboardApp() {
             </fieldset>
 
             <div className="mt-4">
-              <label className="text-xs uppercase text-ink-faded" htmlFor="receipt-time">
-                Daily Receipt Time
-              </label>
-              <input
-                id="receipt-time"
-                type="time"
-                className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm"
-                value={settings.dailyReceiptTime}
-                onChange={(e) => void updateSettings({ dailyReceiptTime: e.target.value })}
-              />
+              <p className="text-xs uppercase text-ink-faded">{t(settings.locale, 'reportSchedule')}</p>
+              <p className="mt-1 text-sm normal-case text-ink">
+                {settings.dailyReceiptTime} · {settings.timezone}
+              </p>
             </div>
 
             <ReceiptDivider />

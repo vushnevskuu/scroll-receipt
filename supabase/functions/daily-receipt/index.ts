@@ -6,6 +6,8 @@ import {
   type Platform,
 } from './_shared/receipt.ts';
 
+const RECEIPT_SEND_WINDOW_MINUTES = 5;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
@@ -21,12 +23,17 @@ function isReportDueNow(timezone: string, reportTimeLocal: string, now = new Dat
     hour12: false,
   });
   const parts = formatter.formatToParts(now);
-  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
-  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
-  const current = `${hour}:${minute}`;
-  const [rh, rm] = reportTimeLocal.split(':');
-  const target = `${rh?.padStart(2, '0')}:${rm?.padStart(2, '0')}`;
-  return current === target;
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? 0);
+  const currentMinutes = hour * 60 + minute;
+
+  const [rh, rm] = reportTimeLocal.split(':').map(Number);
+  const targetMinutes = (rh ?? 0) * 60 + (rm ?? 0);
+
+  return (
+    currentMinutes >= targetMinutes &&
+    currentMinutes < targetMinutes + RECEIPT_SEND_WINDOW_MINUTES
+  );
 }
 
 async function sendResendEmail(to: string, subject: string, html: string, text: string) {

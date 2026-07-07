@@ -1,12 +1,14 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js';
-import { createReceiptSpring } from './receipt-spring.js';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=46';
+import { createReceiptSpring } from './receipt-spring.js?v=46';
 
 var FEED_MS = 2600;
+var REPRINT_DELAY_MS = 2200;
+var DOWNLOAD_HREF = 'scroll-receipt-2.0.0-chrome.zip';
 var scrollTemplate = '';
 var isDetaching = false;
 var motionEnabled = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var USE_CLOTH_PHYSICS = true;
 var clothInstance = null;
-
 var slot = document.querySelector('.receipt-slot');
 var scroll = document.querySelector('.receipt-scroll');
 var canvas = document.querySelector('#receipt-canvas');
@@ -28,15 +30,19 @@ function positionPrinter(scrollEl) {
   var height = scrollEl.offsetHeight;
   document.documentElement.style.setProperty('--receipt-h', height + 'px');
   slot.style.height = height + 'px';
-
-  var mouthTop = window.innerHeight * 0.5 + height;
-  mouthTop = Math.min(mouthTop, window.innerHeight - 40);
-  mouthTop = Math.max(mouthTop, height + 32);
+  var mouthTop = Math.max(44, Math.min(72, Math.round(window.innerHeight * 0.08)));
   document.documentElement.style.setProperty('--mouth-top', mouthTop + 'px');
 }
 
 function getReceiptEl(scrollEl) {
   return scrollEl.querySelector('.receipt');
+}
+
+function triggerDownload(href) {
+  var a = document.createElement('a');
+  a.href = href || DOWNLOAD_HREF;
+  a.download = '';
+  a.click();
 }
 
 function stopInteractions(scrollEl) {
@@ -68,6 +74,9 @@ function startFeed(scrollEl) {
     paper.style.removeProperty('transform');
     paper.style.removeProperty('box-shadow');
     paper.style.removeProperty('visibility');
+    paper.style.removeProperty('clip-path');
+    paper.style.removeProperty('opacity');
+    paper.classList.remove('receipt-remnant', 'is-removing');
   }
 
   document.documentElement.classList.add('printing');
@@ -84,13 +93,13 @@ async function onFeedComplete(scrollEl) {
 
   if (!motionEnabled) return;
 
-  var useCloth = canvas && motionEnabled;
+  var useCloth = USE_CLOTH_PHYSICS && canvas && motionEnabled;
 
   if (useCloth) {
     clothInstance = createReceiptCloth({
       canvas: '#receipt-canvas',
-      onDownload: function () {
-        void detachReceipt(scrollEl);
+      onTear: function (href) {
+        void tearReceipt(scrollEl, href);
       },
     });
     var ok = await clothInstance.init(scrollEl);
@@ -126,59 +135,42 @@ function reprint() {
   isDetaching = false;
 }
 
-async function detachReceipt(scrollEl) {
+async function tearReceipt(scrollEl, href) {
   if (isDetaching || !scrollEl.classList.contains('is-fed')) return;
   isDetaching = true;
+  var tearZone = scrollEl.querySelector('.receipt-tear-zone');
+  var article = getReceiptEl(scrollEl);
+  var downloadHref = href || (tearZone ? tearZone.getAttribute('data-download-href') : '') || DOWNLOAD_HREF;
 
   if (clothInstance) {
+    // Keep the DOM receipt hidden after the cloth fall so it does not flash
+    // back for a moment before the next print cycle starts.
+    if (article) article.style.visibility = 'hidden';
     clothInstance.stop();
     clothInstance.destroy();
     clothInstance = null;
-    var paper = getReceiptEl(scrollEl);
-    if (paper) paper.style.visibility = '';
   }
 
   stopInteractions(scrollEl);
+  triggerDownload(downloadHref);
 
-  var rect = scrollEl.getBoundingClientRect();
-  var paper = getReceiptEl(scrollEl);
-
-  document.body.appendChild(scrollEl);
-  slot.style.height = '0';
-
-  scrollEl.style.position = 'fixed';
-  scrollEl.style.left = rect.left + 'px';
-  scrollEl.style.top = rect.top + 'px';
-  scrollEl.style.width = rect.width + 'px';
-  scrollEl.style.margin = '0';
-  scrollEl.style.zIndex = '20';
-  scrollEl.classList.add('is-detached');
-  scrollEl.classList.remove('is-fed', 'is-cloth');
-
-  if (motionEnabled && paper) {
-    var flySpring = createReceiptSpring(paper, {
-      maxX: 1200,
-      maxY: 1200,
-      maxRot: 10,
-      idleAmp: 0,
-    });
-    flySpring.start();
-    await flySpring.flyToViewportCenter();
-    flySpring.stop();
-  }
-
-  scrollEl.remove();
-  reprint();
+  window.setTimeout(function () {
+    scrollEl.remove();
+    reprint();
+  }, REPRINT_DELAY_MS);
 }
 
 function wireReceipt(scrollEl) {
-  var downloadBtn = scrollEl.querySelector('.btn-primary');
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', function (e) {
+  var tearZone = scrollEl.querySelector('.receipt-tear-zone');
+  if (tearZone) {
+    tearZone.addEventListener('click', function (e) {
+      if (e.target.closest('.fine a')) return;
       if (scrollEl.classList.contains('is-cloth')) {
         e.preventDefault();
+        return;
       }
-      void detachReceipt(scrollEl);
+      e.preventDefault();
+      void tearReceipt(scrollEl, tearZone.getAttribute('data-download-href') || DOWNLOAD_HREF);
     });
   }
 

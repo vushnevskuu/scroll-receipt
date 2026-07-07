@@ -1,17 +1,18 @@
-/* eslint-disable react-hooks/set-state-in-effect -- sync email field when settings load */
+/* eslint-disable react-hooks/set-state-in-effect -- sync form when settings load */
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { t } from '@scroll-receipt/shared';
+import { isSetupComplete, SetupFields } from '@src/components/onboarding/SetupFields';
 import {
   deleteAllData,
   exportData,
   sendTestReceipt,
   signInWithOtp,
   signOut,
-  updateProfile,
   useSettings,
   verifyOtp,
 } from '@src/hooks/useExtensionData';
+import { applyAutoReceiptSchedule, formatReceiptScheduleLabel } from '@src/lib/receipt-schedule';
 import { isBackendConfigured } from '@src/lib/env';
 import { PLATFORM_LABELS } from '@src/utils/constants';
 import '@src/styles/receipt.css';
@@ -37,10 +38,25 @@ function OptionsApp() {
   const locale = settings.locale;
   const s = (key: Parameters<typeof t>[1]) => t(locale, key);
   const backendReady = isBackendConfigured();
+  const setupReady = isSetupComplete(email);
+  const scheduleLabel = formatReceiptScheduleLabel(
+    { timezone: settings.timezone, dailyReceiptTime: settings.dailyReceiptTime },
+    locale,
+  );
+
+  const persistSetup = async () => {
+    await applyAutoReceiptSchedule({ syncProfile: false });
+    await updateSettings({ email, reportEnabled: true });
+  };
 
   const handleSendOtp = async () => {
+    if (!setupReady) {
+      setMessage(s('setupRequired'));
+      return;
+    }
     setBusy(true);
     setMessage(null);
+    await persistSetup();
     const result = await signInWithOtp(email);
     setBusy(false);
     if (result.ok) {
@@ -54,14 +70,36 @@ function OptionsApp() {
   const handleVerify = async () => {
     setBusy(true);
     setMessage(null);
+    await persistSetup();
     const result = await verifyOtp(email, otp);
     setBusy(false);
     if (result.ok) {
       await refresh();
-      setMessage(locale === 'ru' ? 'Email подтверждён' : 'Email verified');
+      setMessage(locale === 'ru' ? 'Настройка завершена' : 'Setup complete');
     } else {
       setMessage(result.error ?? 'Error');
     }
+  };
+
+  const handleCompleteLocal = async () => {
+    if (!setupReady) {
+      setMessage(s('setupRequired'));
+      return;
+    }
+    setBusy(true);
+    await applyAutoReceiptSchedule({ syncProfile: false });
+    await updateSettings({
+      email,
+      reportEnabled: true,
+      onboardingComplete: true,
+      trackingEnabled: true,
+    });
+    setBusy(false);
+    setMessage(
+      locale === 'ru'
+        ? 'Email сохранён. Подтверждение станет доступно после подключения сервера.'
+        : 'Email saved. Verification will be available once the server is connected.',
+    );
   };
 
   const handleTestReceipt = async () => {
@@ -71,10 +109,6 @@ function OptionsApp() {
     setMessage(result.ok ? s('testReceipt') : (result.error ?? 'Error'));
   };
 
-  const finishLocalOnboarding = () => {
-    void updateSettings({ onboardingComplete: true, trackingEnabled: true });
-  };
-
   return (
     <div className="options-shell mx-auto max-w-xl p-6">
       <h1 className="text-sm font-bold uppercase tracking-[0.25em]">Scroll Receipt Options</h1>
@@ -82,63 +116,67 @@ function OptionsApp() {
 
       {!settings.onboardingComplete && (
         <section className="mt-6 rounded border border-divider/40 p-4">
-          <h2 className="text-xs font-bold uppercase">Privacy Notice</h2>
+          <h2 className="text-xs font-bold uppercase">{s('onboardingTitle')}</h2>
           <p className="mt-2 text-xs leading-relaxed text-ink-faded">{s('onboardingDesc')}</p>
+          <p className="mt-2 text-xs leading-relaxed text-ink-faded">{s('setupRequired')}</p>
+
           <label className="mt-4 flex items-start gap-2 text-xs">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>
+            <span className="normal-case leading-relaxed">
               {locale === 'ru'
                 ? 'Согласен на учёт времени просмотра в браузере и отправку агрегированных данных на сервер для email-чеков.'
                 : 'I agree to track browser watch time and sync aggregated totals for email receipts.'}
             </span>
           </label>
-          {consent && backendReady && (
+
+          {consent && (
             <div className="mt-4 space-y-3">
-              <label className="block text-xs uppercase">
-                {s('email')}
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
-                />
-              </label>
-              {!otpSent ? (
-                <button
-                  type="button"
-                  disabled={busy || !email}
-                  onClick={() => void handleSendOtp()}
-                  className="w-full border border-ink py-2 text-xs font-bold uppercase"
-                >
-                  {s('sendOtp')}
-                </button>
-              ) : (
-                <>
-                  <label className="block text-xs uppercase">
-                    {s('otp')}
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
-                    />
-                  </label>
+              <SetupFields locale={locale} email={email} disabled={busy} onEmailChange={setEmail} />
+
+              {backendReady ? (
+                !otpSent ? (
                   <button
                     type="button"
-                    disabled={busy || otp.length < 4}
-                    onClick={() => void handleVerify()}
+                    disabled={busy || !setupReady}
+                    onClick={() => void handleSendOtp()}
                     className="w-full border border-ink py-2 text-xs font-bold uppercase"
                   >
-                    {s('verify')}
+                    {s('sendOtp')}
                   </button>
-                </>
+                ) : (
+                  <>
+                    <label className="block text-xs uppercase">
+                      {s('otp')}
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={busy || otp.length < 4 || !setupReady}
+                      onClick={() => void handleVerify()}
+                      className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                    >
+                      {s('verify')}
+                    </button>
+                  </>
+                )
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy || !setupReady}
+                  onClick={() => void handleCompleteLocal()}
+                  className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                >
+                  {s('completeSetup')}
+                </button>
               )}
             </div>
-          )}
-          {consent && !backendReady && (
-            <button type="button" className="mt-4 w-full border border-ink py-2 text-xs uppercase" onClick={finishLocalOnboarding}>
-              {locale === 'ru' ? 'Продолжить без email' : 'Continue without email'}
-            </button>
           )}
         </section>
       )}
@@ -149,15 +187,11 @@ function OptionsApp() {
           <p className="text-xs">
             {settings.email} <span className="text-success-green">✓</span>
           </p>
-          <label className="block text-xs uppercase text-ink-faded">
-            {s('timezone')}
-            <input
-              type="text"
-              value={settings.timezone}
-              onChange={(e) => void updateSettings({ timezone: e.target.value })}
-              className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
-            />
-          </label>
+          <div className="rounded border border-divider/40 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-faded">{s('reportSchedule')}</p>
+            <p className="mt-1 text-xs normal-case text-ink">{scheduleLabel}</p>
+            <p className="mt-1 text-[10px] normal-case text-ink-faded">{s('onboardingAutoSchedule')}</p>
+          </div>
           <label className="flex items-center gap-2 text-xs uppercase">
             <input
               type="checkbox"
@@ -166,37 +200,6 @@ function OptionsApp() {
             />
             {s('reportEnabled')}
           </label>
-          <label className="block text-xs uppercase text-ink-faded">
-            {s('reportTime')}
-            <input
-              type="time"
-              value={settings.dailyReceiptTime}
-              onChange={(e) => void updateSettings({ dailyReceiptTime: e.target.value })}
-              className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
-            />
-          </label>
-          <p className="text-[10px] text-ink-faded">
-            {locale === 'ru'
-              ? 'Чек отправляется за предыдущий день в указанное время (по умолчанию 00:05).'
-              : 'Receipt covers the previous calendar day at this local time (default 00:05).'}
-          </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              await updateProfile({
-                timezone: settings.timezone,
-                reportEnabled: settings.reportEnabled,
-                reportTimeLocal: settings.dailyReceiptTime,
-              });
-              setBusy(false);
-              setMessage(locale === 'ru' ? 'Настройки сохранены' : 'Settings saved');
-            }}
-            className="w-full border border-divider py-2 text-xs uppercase"
-          >
-            Save email settings
-          </button>
           <button
             type="button"
             disabled={busy}
@@ -208,6 +211,14 @@ function OptionsApp() {
           <button type="button" className="text-[10px] uppercase text-ink-faded underline" onClick={() => void signOut()}>
             Sign out
           </button>
+        </section>
+      )}
+
+      {settings.onboardingComplete && !settings.emailVerified && settings.email && (
+        <section className="mt-6 space-y-3 border-t border-divider/30 pt-6">
+          <h2 className="text-xs font-bold uppercase">{s('email')}</h2>
+          <p className="text-xs normal-case text-ink-faded">{settings.email}</p>
+          <p className="text-[10px] normal-case text-ink-faded">{scheduleLabel}</p>
         </section>
       )}
 
@@ -258,7 +269,7 @@ function OptionsApp() {
         </button>
       </section>
 
-      {message && <p className="mt-4 text-xs text-ink-faded">{message}</p>}
+      {message && <p className="mt-4 text-xs normal-case text-ink-faded">{message}</p>}
       <p className="mt-6 text-[10px] uppercase text-ink-faded">Browser Activity Only · v2.0.0</p>
     </div>
   );

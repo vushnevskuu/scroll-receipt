@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { t } from '@scroll-receipt/shared';
 import { DailyReceipt, EmptyReceipt } from '@src/components/receipt/DailyReceipt';
 import { buildReceiptData } from '@src/receipts/equivalent-engine';
 import {
@@ -40,6 +41,27 @@ function PopupApp() {
     const url = chrome.runtime.getURL('/dashboard.html');
     void chrome.tabs.create({ url });
   };
+
+  const openOptions = () => {
+    void chrome.runtime.openOptionsPage();
+  };
+
+  if (settings && !settings.onboardingComplete) {
+    const locale = settings.locale;
+    return (
+      <div className="popup-shell p-4">
+        <p className="text-center text-xs font-bold uppercase tracking-widest">{t(locale, 'onboardingTitle')}</p>
+        <p className="mt-3 text-xs leading-relaxed text-ink-faded">{t(locale, 'setupRequired')}</p>
+        <button
+          type="button"
+          onClick={openOptions}
+          className="mt-4 w-full border border-ink bg-paper py-2 text-xs font-bold uppercase"
+        >
+          {t(locale, 'completeSetup')}
+        </button>
+      </div>
+    );
+  }
 
   if (loading && !summary) {
     return <div className="popup-shell p-4 text-xs uppercase text-ink-faded">Loading...</div>;

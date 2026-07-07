@@ -18,6 +18,7 @@ import { ALARM_NAMES } from '@src/utils/constants';
 import { getLocalDateString, getWeekRange } from '@src/utils/format';
 import { signInWithOtp, signOut, verifyOtp } from '@src/lib/supabase';
 import { getSyncState, sendTestReceipt, syncDailyUsage, updateProfile } from '@src/lib/sync';
+import { applyAutoReceiptSchedule } from '@src/lib/receipt-schedule';
 import { onMessage } from '@src/utils/messaging';
 
 async function buildTrackingStatus(): Promise<TrackingStatus> {
@@ -165,17 +166,12 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
     case 'VERIFY_OTP': {
       const result = await verifyOtp(message.payload.email, message.payload.token);
       if (result.ok) {
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        await updateProfile({
-          timezone,
-          reportEnabled: true,
-          reportTimeLocal: (await storageRepo.getSettings()).dailyReceiptTime,
-        });
+        await applyAutoReceiptSchedule({ syncProfile: true });
         await storageRepo.updateSettings({
           onboardingComplete: true,
           email: message.payload.email,
           emailVerified: true,
-          timezone,
+          trackingEnabled: true,
         });
       }
       return result;
@@ -209,6 +205,12 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 export function registerBackgroundHandlers(): void {
   onMessage(handleMessage);
 
+  chrome.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+      void chrome.runtime.openOptionsPage();
+    }
+  });
+
   chrome.alarms.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     if (alarm.name === ALARM_NAMES.STALE_SESSION || alarm.name === ALARM_NAMES.CHECKPOINT) {
       await sessionEngine.finalizeStaleSessions();
@@ -231,7 +233,7 @@ export function registerBackgroundHandlers(): void {
 
   void (async () => {
     await sessionEngine.initialize();
-    const settings = await storageRepo.getSettings();
+    const settings = await applyAutoReceiptSchedule({ syncProfile: true });
     scheduleAlarms(settings);
   })();
 }

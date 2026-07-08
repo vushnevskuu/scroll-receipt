@@ -54,6 +54,7 @@ async function deploy(name, verifyJwt) {
 }
 
 for (const [name, jwt] of [
+  ['send-auth-link', false],
   ['sync-usage', true],
   ['send-test-receipt', true],
   ['daily-receipt', false],

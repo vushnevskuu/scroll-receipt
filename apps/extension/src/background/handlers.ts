@@ -181,7 +181,7 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
       return sendTestReceipt(message.payload.locale ?? 'ru');
 
     case 'SIGN_IN_OTP':
-      return signInWithOtp(message.payload.email);
+      return signInWithOtp(message.payload.email, message.payload.locale);
 
     case 'VERIFY_OTP': {
       const result = await verifyOtp(message.payload.email, message.payload.token);

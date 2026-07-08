@@ -17,7 +17,7 @@ export const trackingSettingsSchema = z.object({
   retentionDays: z.number().int().positive(),
   equivalentRates: equivalentRatesSchema,
   onboardingComplete: z.boolean(),
-  locale: z.enum(['ru', 'en']).default('ru'),
+  locale: z.enum(['ru', 'en']),
   timezone: z.string(),
   reportEnabled: z.boolean(),
   email: z.string().email().nullable(),
@@ -92,7 +92,13 @@ export const extensionMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('GET_SYNC_STATE') }),
   z.object({ type: z.literal('SYNC_NOW') }),
   z.object({ type: z.literal('SEND_TEST_RECEIPT'), payload: z.object({ locale: z.enum(['ru', 'en']).optional() }) }),
-  z.object({ type: z.literal('SIGN_IN_OTP'), payload: z.object({ email: z.string().email() }) }),
+  z.object({
+    type: z.literal('SIGN_IN_OTP'),
+    payload: z.object({
+      email: z.string().email(),
+      locale: z.enum(['ru', 'en']).optional(),
+    }),
+  }),
   z.object({ type: z.literal('VERIFY_OTP'), payload: z.object({ email: z.string().email(), token: z.string().min(4) }) }),
   z.object({ type: z.literal('SIGN_OUT') }),
   z.object({

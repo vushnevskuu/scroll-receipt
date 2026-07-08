@@ -14,6 +14,7 @@ import {
   verifyOtp,
 } from '@src/hooks/useExtensionData';
 import { applyAutoReceiptSchedule, formatReceiptScheduleLabel } from '@src/lib/receipt-schedule';
+import { formatAuthSendError, isEmailRateLimitError } from '@src/lib/auth-errors';
 import { isBackendConfigured } from '@src/lib/env';
 import { looksLikeEmailSignInLink, openEmailSignInLink } from '@src/lib/supabase';
 import { PLATFORM_LABELS } from '@src/utils/constants';
@@ -61,7 +62,27 @@ function OptionsApp() {
 
   const persistSetup = async () => {
     await applyAutoReceiptSchedule({ syncProfile: false });
-    await updateSettings({ email, reportEnabled: true });
+    await updateSettings({ email, reportEnabled: true, locale: settings.locale });
+  };
+
+  const handleLocaleChange = async (nextLocale: 'ru' | 'en') => {
+    if (nextLocale === settings.locale) return;
+
+    setBusy(true);
+    setMessage(null);
+    try {
+      await updateSettings({ locale: nextLocale });
+      await updateProfile({
+        locale: nextLocale,
+        reportEnabled: settings.reportEnabled,
+        reportTimeLocal: settings.dailyReceiptTime,
+        timezone: settings.timezone,
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleSendOtp = async () => {
@@ -72,7 +93,7 @@ function OptionsApp() {
     setBusy(true);
     setMessage(null);
     await persistSetup();
-    const result = await signInWithOtp(email);
+    const result = await signInWithOtp(email, locale);
     setBusy(false);
     if (result.ok) {
       setOtpSent(true);
@@ -82,7 +103,10 @@ function OptionsApp() {
           : 'Email sent. You can enter the code from the email or open the sign-in link.',
       );
     } else {
-      setMessage(result.error ?? 'Error');
+      if (isEmailRateLimitError(result.error)) {
+        setOtpSent(true);
+      }
+      setMessage(formatAuthSendError(result.error, locale));
     }
   };
 
@@ -191,8 +215,31 @@ function OptionsApp() {
 
   return (
     <div className="options-shell mx-auto max-w-xl p-6">
-      <h1 className="text-sm font-bold uppercase tracking-[0.25em]">Scroll Receipt Options</h1>
-      <p className="mt-2 text-xs text-ink-faded">{s('browserOnly')}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-sm font-bold uppercase tracking-[0.25em]">Scroll Receipt Options</h1>
+          <p className="mt-2 text-xs text-ink-faded">{s('browserOnly')}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="pt-1 text-[10px] uppercase text-ink-faded">Language</span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleLocaleChange('en')}
+            className={`border px-2 py-1 text-[10px] font-bold uppercase ${locale === 'en' ? 'border-ink text-ink' : 'border-divider text-ink-faded'}`}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleLocaleChange('ru')}
+            className={`border px-2 py-1 text-[10px] font-bold uppercase ${locale === 'ru' ? 'border-ink text-ink' : 'border-divider text-ink-faded'}`}
+          >
+            RU
+          </button>
+        </div>
+      </div>
 
       {!settings.onboardingComplete && (
         <section className="mt-6 rounded border border-divider/40 p-4">
@@ -215,14 +262,26 @@ function OptionsApp() {
 
               {backendReady ? (
                 !otpSent ? (
-                  <button
-                    type="button"
-                    disabled={busy || !setupReady}
-                    onClick={() => void handleSendOtp()}
-                    className="w-full border border-ink py-2 text-xs font-bold uppercase"
-                  >
-                    {s('sendOtp')}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      disabled={busy || !setupReady}
+                      onClick={() => void handleSendOtp()}
+                      className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                    >
+                      {s('sendOtp')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setOtpSent(true)}
+                      className="w-full text-[10px] uppercase text-ink-faded underline"
+                    >
+                      {locale === 'ru'
+                        ? 'У меня уже есть код или ссылка'
+                        : 'I already have a code or sign-in link'}
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <label className="block text-xs uppercase">
@@ -322,14 +381,26 @@ function OptionsApp() {
           {backendReady && (
             <div className="space-y-3">
               {!otpSent ? (
-                <button
-                  type="button"
-                  disabled={busy || !setupReady}
-                  onClick={() => void handleSendOtp()}
-                  className="w-full border border-ink py-2 text-xs font-bold uppercase"
-                >
-                  {s('sendOtp')}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    disabled={busy || !setupReady}
+                    onClick={() => void handleSendOtp()}
+                    className="w-full border border-ink py-2 text-xs font-bold uppercase"
+                  >
+                    {s('sendOtp')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setOtpSent(true)}
+                    className="w-full text-[10px] uppercase text-ink-faded underline"
+                  >
+                    {locale === 'ru'
+                      ? 'У меня уже есть код или ссылка'
+                      : 'I already have a code or sign-in link'}
+                  </button>
+                </div>
               ) : (
                 <>
                   <label className="block text-xs uppercase">

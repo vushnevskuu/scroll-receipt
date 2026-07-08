@@ -10,21 +10,40 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
 
-  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <onboarding@resend.dev>';
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ from, to, subject, html, text }),
-  });
+  const configuredFrom = Deno.env.get('RESEND_FROM');
+  const fallbackFrom = 'Scroll Receipt <onboarding@resend.dev>';
+  const attempt = async (from: string) => {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from, to, subject, html, text }),
+    });
+    const responseText = await res.text();
+    return { ok: res.ok, responseText };
+  };
 
-  if (!res.ok) {
-    throw new Error(`Resend error: ${await res.text()}`);
+  const first = await attempt(configuredFrom ?? fallbackFrom);
+  if (first.ok) {
+    return JSON.parse(first.responseText) as { id: string };
   }
 
-  return res.json() as Promise<{ id: string }>;
+  const shouldRetryWithFallback =
+    configuredFrom &&
+    configuredFrom !== fallbackFrom &&
+    first.responseText.includes('domain is not verified');
+
+  if (shouldRetryWithFallback) {
+    const fallback = await attempt(fallbackFrom);
+    if (fallback.ok) {
+      return JSON.parse(fallback.responseText) as { id: string };
+    }
+    throw new Error(`Resend error: ${fallback.responseText}`);
+  }
+
+  throw new Error(`Resend error: ${first.responseText}`);
 }
 
 Deno.serve(async (req) => {

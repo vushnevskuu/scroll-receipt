@@ -67,9 +67,65 @@ export async function getAuthenticatedSupabase(): Promise<SupabaseClient | null>
   return supabase;
 }
 
-export async function signInWithOtp(email: string): Promise<{ ok: boolean; error?: string }> {
+async function requestManagedSignInEmail(
+  email: string,
+  locale: 'ru' | 'en' = 'en',
+): Promise<{ ok: boolean; error?: string }> {
+  const url = getSupabaseUrl();
+  const anonKey = getSupabaseAnonKey();
+  if (!url || !anonKey) return { ok: false, error: 'Backend not configured' };
+
+  const res = await fetch(`${url}/functions/v1/send-auth-link`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: anonKey,
+    },
+    body: JSON.stringify({
+      email,
+      locale,
+      redirectTo: getAuthCallbackUrl(email),
+    }),
+  });
+
+  const text = await res.text();
+  let payload: { error?: string; ok?: boolean } | null = null;
+
+  try {
+    payload = JSON.parse(text) as { error?: string; ok?: boolean };
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok || !payload?.ok) {
+    return {
+      ok: false,
+      error: payload?.error ?? text ?? 'Could not send auth email',
+    };
+  }
+
+  return { ok: true };
+}
+
+export async function signInWithOtp(
+  email: string,
+  locale: 'ru' | 'en' = 'en',
+): Promise<{ ok: boolean; error?: string }> {
+  const managed = await requestManagedSignInEmail(email, locale);
+  if (managed.ok) return managed;
+
+  const shouldFallback =
+    managed.error?.includes('Function not found') ||
+    managed.error?.includes('Failed to fetch') ||
+    managed.error?.includes('non-2xx') ||
+    managed.error?.includes('404');
+
+  if (!shouldFallback) {
+    return managed;
+  }
+
   const supabase = getSupabase();
-  if (!supabase) return { ok: false, error: 'Backend not configured' };
+  if (!supabase) return { ok: false, error: managed.error ?? 'Backend not configured' };
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -120,16 +176,23 @@ export async function verifyOtp(
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: 'Backend not configured' };
 
-  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
-  if (error || !data.session) return { ok: false, error: error?.message ?? 'Verification failed' };
+  let lastError: string | undefined;
+  for (const type of ['magiclink', 'email', 'signup'] as const) {
+    const { data, error } = await supabase.auth.verifyOtp({ email, token, type });
+    if (data.session) {
+      await saveStoredSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+      });
 
-  await saveStoredSession({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-    expires_at: data.session.expires_at,
-  });
+      return { ok: true };
+    }
 
-  return { ok: true };
+    lastError = error?.message ?? lastError;
+  }
+
+  return { ok: false, error: lastError ?? 'Verification failed' };
 }
 
 export async function importSessionFromMagicLink(

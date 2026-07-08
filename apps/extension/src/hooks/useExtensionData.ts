@@ -139,8 +139,11 @@ export function useSyncState(pollMs = 5000) {
   return { syncState, refresh };
 }
 
-export async function signInWithOtp(email: string) {
-  return sendMessage<{ ok: boolean; error?: string }>({ type: 'SIGN_IN_OTP', payload: { email } });
+export async function signInWithOtp(email: string, locale?: 'ru' | 'en') {
+  return sendMessage<{ ok: boolean; error?: string }>({
+    type: 'SIGN_IN_OTP',
+    payload: { email, locale },
+  });
 }
 
 export async function verifyOtp(email: string, token: string) {

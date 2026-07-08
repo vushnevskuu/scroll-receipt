@@ -13,7 +13,11 @@ Dashboard: https://supabase.com/dashboard/project/lqkxaykwsnrouqwsbivr
 
 ## Required: Resend secret (one step)
 
-Emails won't send until you add Resend API key to Supabase:
+Emails won't send until you add Resend API key to Supabase. This is required for:
+
+- `send-test-receipt`
+- `daily-receipt`
+- `send-auth-link` (custom auth mailer for extension sign-in)
 
 1. Create account at https://resend.com
 2. Create API key

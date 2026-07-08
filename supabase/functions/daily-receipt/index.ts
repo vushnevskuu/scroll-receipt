@@ -39,14 +39,37 @@ function isReportDueNow(timezone: string, reportTimeLocal: string, now = new Dat
 async function sendResendEmail(to: string, subject: string, html: string, text: string) {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
-  const from = Deno.env.get('RESEND_FROM') ?? 'Scroll Receipt <onboarding@resend.dev>';
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html, text }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{ id: string }>;
+  const configuredFrom = Deno.env.get('RESEND_FROM');
+  const fallbackFrom = 'Scroll Receipt <onboarding@resend.dev>';
+  const attempt = async (from: string) => {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject, html, text }),
+    });
+    const responseText = await res.text();
+    return { ok: res.ok, responseText };
+  };
+
+  const first = await attempt(configuredFrom ?? fallbackFrom);
+  if (first.ok) {
+    return JSON.parse(first.responseText) as { id: string };
+  }
+
+  const shouldRetryWithFallback =
+    configuredFrom &&
+    configuredFrom !== fallbackFrom &&
+    first.responseText.includes('domain is not verified');
+
+  if (shouldRetryWithFallback) {
+    const fallback = await attempt(fallbackFrom);
+    if (fallback.ok) {
+      return JSON.parse(fallback.responseText) as { id: string };
+    }
+    throw new Error(fallback.responseText);
+  }
+
+  throw new Error(first.responseText);
 }
 
 function authorizeCron(req: Request): boolean {

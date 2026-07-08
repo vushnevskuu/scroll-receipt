@@ -14,7 +14,11 @@ import {
   verifyOtp,
 } from '@src/hooks/useExtensionData';
 import { applyAutoReceiptSchedule, formatReceiptScheduleLabel } from '@src/lib/receipt-schedule';
-import { formatAuthSendError, isEmailRateLimitError } from '@src/lib/auth-errors';
+import {
+  formatAuthSendError,
+  formatEmailSendError,
+  isEmailRateLimitError,
+} from '@src/lib/auth-errors';
 import { isBackendConfigured } from '@src/lib/env';
 import { looksLikeEmailSignInLink, openEmailSignInLink } from '@src/lib/supabase';
 import { PLATFORM_LABELS } from '@src/utils/constants';
@@ -168,7 +172,7 @@ function OptionsApp() {
         ? locale === 'ru'
           ? 'Тестовый чек отправлен'
           : 'Test receipt sent'
-        : (result.error ?? 'Error'),
+        : formatEmailSendError(result.error, locale),
     );
   };
 

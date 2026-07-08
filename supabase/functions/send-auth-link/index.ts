@@ -110,40 +110,40 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
 
-  const configuredFrom = Deno.env.get('RESEND_FROM');
-  const fallbackFrom = 'Scroll Receipt <onboarding@resend.dev>';
-  const attempt = async (from: string) => {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from, to, subject, html, text }),
-    });
-    const responseText = await res.text();
-    return { ok: res.ok, from, responseText };
-  };
-
-  const first = await attempt(configuredFrom ?? fallbackFrom);
-  if (first.ok) {
-    return JSON.parse(first.responseText) as { id: string };
+  const from = Deno.env.get('RESEND_FROM')?.trim();
+  if (!from) {
+    throw new Error(
+      'RESEND_FROM not configured. Set it to a verified sender address, for example Scroll Receipt <hello@mail.yourdomain.com>.',
+    );
   }
 
-  const shouldRetryWithFallback =
-    configuredFrom &&
-    configuredFrom !== fallbackFrom &&
-    first.responseText.includes('domain is not verified');
+  const allowTestMode = Deno.env.get('RESEND_ALLOW_TEST_MODE') === 'true';
+  if (!allowTestMode && from.toLowerCase().includes('onboarding@resend.dev')) {
+    throw new Error(
+      'Resend test mode is enabled. Verify a domain in Resend and set RESEND_FROM to an address on that domain before sending emails to users.',
+    );
+  }
 
-  if (shouldRetryWithFallback) {
-    const fallback = await attempt(fallbackFrom);
-    if (fallback.ok) {
-      return JSON.parse(fallback.responseText) as { id: string };
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to, subject, html, text }),
+  });
+
+  const responseText = await res.text();
+  if (!res.ok) {
+    if (responseText.includes('domain is not verified')) {
+      throw new Error(
+        'Resend sender domain is not verified. Verify the domain in Resend and keep RESEND_FROM on that domain.',
+      );
     }
-    throw new Error(`Resend error: ${fallback.responseText}`);
+    throw new Error(`Resend error: ${responseText}`);
   }
 
-  throw new Error(`Resend error: ${first.responseText}`);
+  return JSON.parse(responseText) as { id: string };
 }
 
 Deno.serve(async (req) => {

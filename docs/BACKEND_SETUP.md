@@ -11,7 +11,7 @@ Dashboard: https://supabase.com/dashboard/project/lqkxaykwsnrouqwsbivr
 - pg_cron job every 5 minutes → `daily-receipt`
 - Extension `.env` with anon key (local build)
 
-## Required: Resend secret (one step)
+## Required: production email sender
 
 Emails won't send until you add Resend API key to Supabase. This is required for:
 
@@ -20,15 +20,27 @@ Emails won't send until you add Resend API key to Supabase. This is required for
 - `send-auth-link` (custom auth mailer for extension sign-in)
 
 1. Create account at https://resend.com
-2. Create API key
-3. Supabase → Project → Edge Functions → Secrets:
+2. Add and verify a domain you control in Resend:
+   - Docs: https://resend.com/docs/dashboard/domains/introduction
+   - Important: `onboarding@resend.dev` is test-only and cannot send to all users
+3. Create API key
+4. Supabase → Project → Edge Functions → Secrets:
 
 ```
 RESEND_API_KEY=re_xxxxxxxx
-RESEND_FROM=Scroll Receipt <onboarding@resend.dev>
+RESEND_FROM=Scroll Receipt <hello@mail.yourdomain.com>
 ```
 
-For testing without a domain, Resend allows `onboarding@resend.dev` as sender **only to your verified email**.
+`RESEND_FROM` must use the verified domain from step 2. The site can stay on GitHub Pages; the sender domain is a separate requirement from the website URL.
+
+Optional local-only test mode:
+
+```
+RESEND_FROM=Scroll Receipt <onboarding@resend.dev>
+RESEND_ALLOW_TEST_MODE=true
+```
+
+This mode only sends to the Resend account owner's email and is not valid for public users.
 
 ## Enable email auth (Supabase)
 

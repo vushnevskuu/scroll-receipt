@@ -14,7 +14,7 @@ describe('shared format', () => {
     });
 });
 describe('email receipt', () => {
-    it('renders matching html and text totals', () => {
+    it('renders matching html and text totals with cost estimate', () => {
         const content = renderEmailReceipt({
             date: '2026-07-06',
             timezone: 'Asia/Bangkok',
@@ -27,9 +27,14 @@ describe('email receipt', () => {
             totalSeconds: 6373,
             totalViews: 77,
         }, 'ru', 'https://example.com/settings', 'https://example.com/delete');
-        expect(content.text).toContain('TOTAL TIME');
+        expect(content.subject).toContain('Wasted time');
+        expect(content.text).toContain('WASTED TIME');
+        expect(content.text).toContain('MONEY LOST');
         expect(content.text).toContain('01:46:13');
+        expect(content.text).toContain('$26.55');
         expect(content.html).toContain('01:46:13');
+        expect(content.html).toContain('ESTIMATED VALUE LOST');
+        expect(content.html).toContain('$26.55');
     });
 });
 describe('view threshold constant', () => {

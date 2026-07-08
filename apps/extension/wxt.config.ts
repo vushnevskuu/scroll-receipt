@@ -18,6 +18,9 @@ export default defineConfig({
     description:
       'Tracks short-form video watch time in your browser and sends daily email receipts. Browser activity only — not native mobile apps.',
     version: '2.0.0',
+    externally_connectable: {
+      matches: ['https://vushnevskuu.github.io/*'],
+    },
     permissions: ['storage', 'alarms', 'tabs', 'idle'],
     host_permissions: [
       'https://www.youtube.com/*',

@@ -13,9 +13,14 @@ Load unpacked in Chrome: `apps/extension/.output/chrome-mv3`
 
 **Landing + download:** https://vushnevskuu.github.io/scroll-receipt/
 
-The published zip already includes the backend URL needed for OTP sign-in and email receipts.
+The published zip already includes the backend URL needed for email sign-in and receipts.
 After install, local tracking starts in the browser right away. To receive daily email receipts,
-open **Options**, enter your email, and verify the OTP code.
+open **Options**, enter your email, and finish email verification from the code or sign-in link
+that arrives in your inbox.
+
+If your inbox shows a Supabase sign-in link instead of a numeric code, paste that full link into
+the same verification field in **Options**. The extension rewrites the broken localhost redirect
+and completes sign-in in a new tab.
 
 ## Commands
 

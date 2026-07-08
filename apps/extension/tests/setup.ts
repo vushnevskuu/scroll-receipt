@@ -51,6 +51,9 @@ globalThis.browser = {
   tabs: { create: async () => ({}) },
 };
 
+// @ts-expect-error test mock
+globalThis.chrome = globalThis.browser;
+
 export function resetTestStorage(): void {
   for (const key of Object.keys(memoryStore)) {
     delete memoryStore[key];

@@ -16,7 +16,7 @@ import { buildReceiptData } from '@src/receipts/equivalent-engine';
 import { storageRepo } from '@src/storage/repositories';
 import { ALARM_NAMES } from '@src/utils/constants';
 import { getLocalDateString, getWeekRange } from '@src/utils/format';
-import { signInWithOtp, signOut, verifyOtp } from '@src/lib/supabase';
+import { importSessionFromMagicLink, signInWithOtp, signOut, verifyOtp } from '@src/lib/supabase';
 import { getSyncState, sendTestReceipt, syncDailyUsage, updateProfile } from '@src/lib/sync';
 import { applyAutoReceiptSchedule } from '@src/lib/receipt-schedule';
 import { onMessage } from '@src/utils/messaging';
@@ -65,6 +65,18 @@ async function syncTodayAggregate(force = false): Promise<void> {
   const checkpoint = await storageRepo.getCheckpoint();
   const aggregate = mergeLiveCheckpoint(stored, checkpoint, today);
   await syncDailyUsage(aggregate, force);
+}
+
+async function finalizeVerifiedEmailSetup(email: string | null): Promise<void> {
+  await storageRepo.updateSettings({
+    onboardingComplete: true,
+    email: email ?? (await storageRepo.getSettings()).email,
+    emailVerified: true,
+    trackingEnabled: true,
+    reportEnabled: true,
+  });
+  await applyAutoReceiptSchedule({ syncProfile: true });
+  await syncTodayAggregate(true);
 }
 
 async function getWeeklySummaryData(): Promise<WeeklySummary> {
@@ -174,15 +186,7 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
     case 'VERIFY_OTP': {
       const result = await verifyOtp(message.payload.email, message.payload.token);
       if (result.ok) {
-        await storageRepo.updateSettings({
-          onboardingComplete: true,
-          email: message.payload.email,
-          emailVerified: true,
-          trackingEnabled: true,
-          reportEnabled: true,
-        });
-        await applyAutoReceiptSchedule({ syncProfile: true });
-        await syncTodayAggregate(true);
+        await finalizeVerifiedEmailSetup(message.payload.email);
       }
       return result;
     }
@@ -222,6 +226,49 @@ async function handleMessage(message: ExtensionMessage): Promise<unknown> {
 
 export function registerBackgroundHandlers(): void {
   onMessage(handleMessage);
+
+  chrome.runtime.onMessageExternal.addListener((rawMessage, _sender, sendResponse) => {
+    const message = rawMessage as
+      | {
+          type?: string;
+          payload?: {
+            access_token?: string;
+            refresh_token?: string;
+            expires_at?: number;
+            email?: string | null;
+          };
+        }
+      | undefined;
+
+    if (message?.type !== 'AUTH_SESSION_FROM_PAGE') {
+      sendResponse({ ok: false, error: 'Unsupported external message' });
+      return undefined;
+    }
+
+    void (async () => {
+      const payload = message.payload;
+      if (!payload?.access_token || !payload?.refresh_token) {
+        sendResponse({ ok: false, error: 'Missing session tokens' });
+        return;
+      }
+
+      const result = await importSessionFromMagicLink({
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token,
+        expires_at: payload.expires_at,
+      });
+
+      if (!result.ok) {
+        sendResponse(result);
+        return;
+      }
+
+      await finalizeVerifiedEmailSetup(result.email ?? payload.email ?? null);
+      sendResponse({ ok: true, email: result.email ?? payload.email ?? null });
+    })();
+
+    return true;
+  });
 
   chrome.runtime.onInstalled.addListener((details) => {
     if (details.reason === 'install') {

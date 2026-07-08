@@ -63,6 +63,14 @@
               "@type": "Answer",
               "text": "Download the zip from the homepage, unzip it, open chrome://extensions, enable Developer mode, click Load unpacked, and select the unzipped folder."
             }
+          },
+          {
+            "@type": "Question",
+            "name": "What if the email contains a sign-in link instead of a code?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Paste the full Supabase sign-in link into the same verification field in Options. Scroll Receipt will reopen it with the correct callback instead of localhost."
+            }
           }
         ]
       }
@@ -106,6 +114,14 @@
               <dd>
                 Default: 18:00 local time, for yesterday. Enable it in Options after email
                 verification.
+              </dd>
+            </div>
+            <div>
+              <dt>What if the email contains a sign-in link instead of a code?</dt>
+              <dd>
+                That works too. Paste the full Supabase sign-in link into the same verification
+                field in Options, and Scroll Receipt will reopen it with the correct callback
+                instead of localhost.
               </dd>
             </div>
             <div>

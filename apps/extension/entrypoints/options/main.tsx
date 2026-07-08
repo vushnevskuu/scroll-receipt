@@ -15,6 +15,7 @@ import {
 } from '@src/hooks/useExtensionData';
 import { applyAutoReceiptSchedule, formatReceiptScheduleLabel } from '@src/lib/receipt-schedule';
 import { isBackendConfigured } from '@src/lib/env';
+import { looksLikeEmailSignInLink, openEmailSignInLink } from '@src/lib/supabase';
 import { PLATFORM_LABELS } from '@src/utils/constants';
 import '@src/styles/receipt.css';
 import './style.css';
@@ -36,6 +37,14 @@ function OptionsApp() {
     setOtp('');
     setOtpSent(false);
   }, [email]);
+
+  useEffect(() => {
+    if (!otpSent || settings?.emailVerified) return;
+    const id = window.setInterval(() => {
+      void refresh();
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [otpSent, refresh, settings?.emailVerified]);
 
   if (!settings) {
     return <div className="options-shell p-6 text-xs uppercase">Loading...</div>;
@@ -67,7 +76,11 @@ function OptionsApp() {
     setBusy(false);
     if (result.ok) {
       setOtpSent(true);
-      setMessage(locale === 'ru' ? 'Код отправлен на email' : 'Code sent to your email');
+      setMessage(
+        locale === 'ru'
+          ? 'Письмо отправлено. Можно ввести код из письма или открыть ссылку для входа.'
+          : 'Email sent. You can enter the code from the email or open the sign-in link.',
+      );
     } else {
       setMessage(result.error ?? 'Error');
     }
@@ -77,6 +90,20 @@ function OptionsApp() {
     setBusy(true);
     setMessage(null);
     await persistSetup();
+    if (looksLikeEmailSignInLink(otp)) {
+      const result = await openEmailSignInLink(otp, email);
+      setBusy(false);
+      if (result.ok) {
+        setMessage(
+          locale === 'ru'
+            ? 'Ссылка открыта в новой вкладке. После подтверждения вернитесь в расширение.'
+            : 'The sign-in link opened in a new tab. Return to the extension after confirmation.',
+        );
+      } else {
+        setMessage(result.error ?? 'Error');
+      }
+      return;
+    }
     const result = await verifyOtp(email, otp);
     setBusy(false);
     if (result.ok) {
@@ -199,19 +226,24 @@ function OptionsApp() {
                 ) : (
                   <>
                     <label className="block text-xs uppercase">
-                      {s('otp')}
+                      {locale === 'ru' ? 'Код или ссылка из письма' : 'Code or sign-in link'}
                       <input
                         type="text"
-                        inputMode="numeric"
+                        inputMode="text"
                         autoComplete="one-time-code"
                         value={otp}
                         onChange={(e) => setOtp(e.target.value)}
+                        placeholder={
+                          locale === 'ru'
+                            ? 'Вставьте код или полную ссылку из письма'
+                            : 'Paste the code or the full link from the email'
+                        }
                         className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
                       />
                     </label>
                     <button
                       type="button"
-                      disabled={busy || otp.length < 4 || !setupReady}
+                      disabled={busy || otp.trim().length < 4 || !setupReady}
                       onClick={() => void handleVerify()}
                       className="w-full border border-ink py-2 text-xs font-bold uppercase"
                     >
@@ -301,19 +333,24 @@ function OptionsApp() {
               ) : (
                 <>
                   <label className="block text-xs uppercase">
-                    {s('otp')}
+                    {locale === 'ru' ? 'Код или ссылка из письма' : 'Code or sign-in link'}
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="text"
                       autoComplete="one-time-code"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value)}
+                      placeholder={
+                        locale === 'ru'
+                          ? 'Вставьте код или полную ссылку из письма'
+                          : 'Paste the code or the full link from the email'
+                      }
                       className="mt-1 w-full border border-divider bg-paper px-2 py-1 text-sm text-ink"
                     />
                   </label>
                   <button
                     type="button"
-                    disabled={busy || otp.length < 4 || !setupReady}
+                    disabled={busy || otp.trim().length < 4 || !setupReady}
                     onClick={() => void handleVerify()}
                     className="w-full border border-ink py-2 text-xs font-bold uppercase"
                   >

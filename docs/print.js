@@ -1,4 +1,4 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=67';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=68';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 
@@ -89,10 +89,8 @@ function scheduleDomFeedComplete(scrollEl) {
 }
 
 function easeFeed(t) {
-  // Soft start out of the mouth, then a steady push with a gentle finish.
-  if (t < 0.2) return 0.55 * (t / 0.2) * (t / 0.2);
-  var u = (t - 0.2) / 0.8;
-  return 0.55 + 0.45 * (1 - Math.pow(1 - u, 1.55));
+  // Mostly linear extrusion — avoids acceleration spikes that look like cloth jerks.
+  return t * (0.92 + 0.08 * t);
 }
 
 function animateClothFeed(scrollEl) {

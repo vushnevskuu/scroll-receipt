@@ -216,10 +216,9 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (wSum <= EPSILON) return;
 
     var stretch = (len - c.rest) / len;
-    // Paper: very stiff stretch/shear; mild lengthwise curl only when fully out.
-    var feedBoost = feedProgress < 0.999 ? 1.25 : 1;
+    // Paper: stiff stretch/shear, softer bend for natural hang.
     var stiffness =
-      (c.kind === 0 ? 0.82 : c.kind === 1 ? 0.58 : c.kind === 2 ? 0.22 : 0.14) * feedBoost;
+      c.kind === 0 ? 0.72 : c.kind === 1 ? 0.48 : c.kind === 2 ? 0.16 : 0.1;
     var corr = stretch * stiffness;
     var sx = dx * corr;
     var sy = dy * corr;
@@ -287,72 +286,71 @@ export function createXPBDSolver(segW, segH, width, height) {
   }
 
   function applyDepthPose() {
-    // No flutter waves while printing — keeps the sheet flat and paper-like.
-    if (feedProgress < 0.999) {
-      for (var iy = 0; iy < rows; iy++) {
-        for (var ix = 0; ix < cols; ix++) {
-          var i = idx(ix, iy);
-          if (invMass[i] <= 0) continue;
-          var p = i * 3;
-          pos[p + 2] += (rest[p + 2] * 0.35 - pos[p + 2]) * 0.2;
-          prev[p + 2] = pos[p + 2];
-        }
-      }
-      return;
-    }
-
-    var speed = PAPER_PRESET.flutterSpeed;
+    var feeding = feedProgress < 0.999;
+    var speed = PAPER_PRESET.flutterSpeed * (feeding ? 0.7 : 1);
     var detail = PAPER_PRESET.flutterDetail;
     var wind = PAPER_PRESET.windStrength;
-    var force = PAPER_PRESET.flutterForce * (0.12 + wind * 0.4) * 0.01;
+    var force = PAPER_PRESET.flutterForce * (0.2 + wind * 0.7) * (feeding ? 0.008 : 0.014);
 
-    for (var jy = 0; jy < rows; jy++) {
-      var v = jy / segH;
-      var freeBias = Math.pow(1 - v, 1.7);
-      for (var jx = 0; jx < cols; jx++) {
-        var j = idx(jx, jy);
-        var q = j * 3;
+    for (var iy = 0; iy < rows; iy++) {
+      var v = iy / segH;
+      var freeBias = Math.pow(1 - v, 1.45);
+      for (var ix = 0; ix < cols; ix++) {
+        var i = idx(ix, iy);
+        var p = i * 3;
 
-        if (invMass[j] === 0) {
-          pos[q + 2] = rest[q + 2];
-          prev[q + 2] = pos[q + 2];
+        if (invMass[i] === 0) {
+          pos[p + 2] = rest[p + 2];
+          prev[p + 2] = pos[p + 2];
           continue;
         }
 
-        var u = jx / segW;
+        // Skip depth waves for paper still inside the printer.
+        if (feeding) {
+          var topY = height * 0.5;
+          if (topY - rest[p + 1] > height * feedProgress) {
+            pos[p + 2] += (0 - pos[p + 2]) * 0.35;
+            prev[p + 2] = pos[p + 2];
+            continue;
+          }
+        }
+
+        var u = ix / segW;
         var edge = Math.abs(u - 0.5) * 2;
-        var wavePhase = simTime * speed + u * 2.2 + v * 1.4;
-        var wave = Math.sin(wavePhase) * 0.65 + Math.sin(wavePhase * (1.1 + detail) - edge) * 0.18;
-        var liftBias = freeBias * (0.25 + edge * edge * 0.4);
-        var sagLift = Math.max(0, rest[q + 1] - pos[q + 1]) * 0.18;
-        var targetZ = rest[q + 2] + wave * force * liftBias + sagLift;
+        var wavePhase = simTime * speed + u * 2.8 + v * 1.8;
+        var wave = Math.sin(wavePhase) + Math.sin(wavePhase * (1.2 + detail) - edge * 1.6) * 0.28;
+        var liftBias = freeBias * (0.4 + edge * edge * 0.5);
+        var sagLift = Math.max(0, rest[p + 1] - pos[p + 1]) * 0.24;
+        var targetZ = rest[p + 2] + wave * force * liftBias + sagLift;
 
         if (grab) {
-          var gx = jx - grab.cx;
-          var gy = jy - grab.cy;
+          var gx = ix - grab.cx;
+          var gy = iy - grab.cy;
           var gd2 = gx * gx + gy * gy;
           var gr = grab.radius != null ? grab.radius : PAPER_PRESET.grabRadius;
           if (gd2 <= gr * gr) {
             var gt = 1 - Math.sqrt(gd2) / gr;
-            targetZ += PAPER_PRESET.grabLift * (0.2 + gt * 0.45);
+            targetZ += PAPER_PRESET.grabLift * (0.25 + gt * 0.5);
           }
         }
 
-        pos[q + 2] += (targetZ - pos[q + 2]) * 0.08;
-        prev[q + 2] = pos[q + 2];
+        pos[p + 2] += (targetZ - pos[p + 2]) * (feeding ? 0.12 : 0.18);
+        prev[p + 2] = pos[p + 2];
       }
     }
   }
 
   function applyWindSway() {
     if (grab) return;
-    // No lateral cloth-shake during print — only a calm idle draft after feed.
-    if (feedProgress < 0.999) return;
     var wind = PAPER_PRESET.windStrength;
     if (wind <= 0.001) return;
 
-    var basePhase = simTime * (0.28 + wind * 0.22);
-    var maxSwing = 1.1 + wind * 4.5;
+    var feeding = feedProgress < 0.999;
+    // Gentle during print, fuller idle sway after — paper, not silk.
+    var windScale = feeding ? 0.45 : 1;
+    wind *= windScale;
+    var basePhase = simTime * (0.4 + wind * 0.3);
+    var maxSwing = 2.2 + wind * 8;
 
     for (var iy = 0; iy < rows; iy++) {
       var freeBias = 1 - iy / Math.max(1, rows - 1);
@@ -364,17 +362,22 @@ export function createXPBDSolver(segW, segH, width, height) {
         if (invMass[i] <= 0) continue;
 
         var p = i * 3;
+        if (feeding) {
+          var topY = height * 0.5;
+          if (topY - rest[p + 1] > height * feedProgress) continue;
+        }
+
         var u = ix / Math.max(1, segW);
-        var phase = basePhase + u * 1.2 + freeBias * 0.55;
-        var gust = Math.sin(phase) + Math.sin(phase * 0.37 - 0.5) * 0.22;
-        var swayX = gust * maxSwing * rowEase * (0.3 + Math.abs(u - 0.5) * 0.7);
-        var swayY = -Math.abs(Math.sin(phase * 0.45 + 0.4)) * wind * 0.9 * rowEase;
+        var phase = basePhase + u * 1.5 + freeBias * 0.7;
+        var gust = Math.sin(phase) + Math.sin(phase * 0.42 - 0.6) * 0.28;
+        var swayX = gust * maxSwing * rowEase * (0.35 + Math.abs(u - 0.5) * 0.8);
+        var swayY = -Math.abs(Math.sin(phase * 0.5 + 0.45)) * wind * 1.2 * rowEase;
         var targetX = rest[p] + swayX;
         var targetY = rest[p + 1] + swayY;
-        var blend = 0.005 + rowEase * (0.004 + wind * 0.005);
+        var blend = 0.01 + rowEase * (0.008 + wind * 0.01);
 
         pos[p] += (targetX - pos[p]) * blend;
-        pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.65;
+        pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;
       }
     }
   }
@@ -420,20 +423,18 @@ export function createXPBDSolver(segW, segH, width, height) {
           continue;
         }
 
-        // Keep newly freed rows rectangular; no sideways cloth collapse.
-        var hold = edge < 1 ? 0.55 + (1 - edge) * 0.35 : 0.18;
-        pos[p] += (rest[p] - pos[p]) * hold;
-        pos[p + 1] += (rest[p + 1] - pos[p + 1]) * hold * 0.45;
-        pos[p + 2] += (0 - pos[p + 2]) * (0.25 + hold * 0.35);
-        prev[p] += (pos[p] - prev[p]) * 0.35;
-        prev[p + 1] += (pos[p + 1] - prev[p + 1]) * 0.35;
-        prev[p + 2] = pos[p + 2];
+        // Only stabilize the frontier; released paper is free to hang/sway.
+        if (edge < 1.2) {
+          var hold = 0.28 * (1 - Math.min(1, edge / 1.2));
+          pos[p] += (rest[p] - pos[p]) * hold;
+          pos[p + 1] += (rest[p + 1] - pos[p + 1]) * hold * 0.25;
+        }
       }
     }
   }
 
   function clampVelocities() {
-    var maxV = PAPER_PRESET.maxVertexSpeed * (feedProgress < 0.999 ? 0.45 : 1);
+    var maxV = PAPER_PRESET.maxVertexSpeed * (feedProgress < 0.999 ? 0.7 : 1);
     for (var i = 0; i < count; i++) {
       if (invMass[i] <= 0) continue;
       var ix = i * 3;
@@ -453,14 +454,14 @@ export function createXPBDSolver(segW, segH, width, height) {
 
   function integrate(dt) {
     var feeding = printerAttached && feedProgress < 0.999;
-    var windActive = printerAttached && PAPER_PRESET.windStrength > 0.001 && !feeding;
-    if (sleeping && !grab && !windActive && !feeding) return;
+    var windActive = printerAttached && PAPER_PRESET.windStrength > 0.001;
+    // Keep simulating while attached — idle paper should keep a soft sway.
+    if (sleeping && !grab && !windActive && !feeding && !printerAttached) return;
     if (!safetyGuards()) return;
 
-    // Higher damping while printing kills jerky cloth oscillation.
-    var damp = 1 - PAPER_PRESET.damping * (feeding ? 1.35 : 1);
-    if (damp < 0.82) damp = 0.82;
-    var gy = PAPER_PRESET.gravity * (feeding ? 0.85 : 1);
+    var damp = 1 - PAPER_PRESET.damping * (feeding ? 1.1 : 1);
+    if (damp < 0.88) damp = 0.88;
+    var gy = PAPER_PRESET.gravity;
     simTime += dt;
 
     for (var i = 0; i < count; i++) {
@@ -520,17 +521,14 @@ export function createXPBDSolver(segW, segH, width, height) {
       }
     }
 
-    if (!grab && !softRelease) {
+    if (!grab && !softRelease && !feeding) {
       var pull = PAPER_PRESET.shapeMemory * (printerAttached ? 1 : 0);
-      if (feeding) pull *= 2.4;
       for (var ri = 0; ri < count; ri++) {
         if (invMass[ri] <= 0) continue;
         var rx = ri * 3;
-        var vRow = Math.floor(ri / cols) / Math.max(1, segH);
-        if (feeding && vProp < 1 - feedProgress) continue;
-        pos[rx] += (rest[rx] - pos[rx]) * pull * (feeding ? 0.9 : 0.55);
-        pos[rx + 1] += (rest[rx + 1] - pos[rx + 1]) * pull * (feeding ? 0.55 : 0.85);
-        pos[rx + 2] += (rest[rx + 2] - pos[rx + 2]) * pull * (feeding ? 0.8 : 0.35);
+        pos[rx] += (rest[rx] - pos[rx]) * pull * 0.4;
+        pos[rx + 1] += (rest[rx + 1] - pos[rx + 1]) * pull * 0.55;
+        pos[rx + 2] += (rest[rx + 2] - pos[rx + 2]) * pull * 0.25;
       }
     }
 
@@ -543,8 +541,13 @@ export function createXPBDSolver(segW, segH, width, height) {
       var vz2 = pos[px + 2] - prev[px + 2];
       energy += vx2 * vx2 + vy2 * vy2 + vz2 * vz2;
     }
+    // Never fully sleep while hanging from the printer — keep soft paper sway alive.
     sleeping =
-      !grab && !softRelease && !windActive && !feeding && energy < PAPER_PRESET.sleepThreshold;
+      !grab &&
+      !softRelease &&
+      !feeding &&
+      !printerAttached &&
+      energy < PAPER_PRESET.sleepThreshold;
   }
 
   function resetNaN() {

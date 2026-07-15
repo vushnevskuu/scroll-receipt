@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=68';
-import { createXPBDSolver } from './xpbd-solver.js?v=68';
+import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=69';
+import { createXPBDSolver } from './xpbd-solver.js?v=69';
 import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=60';
-import { createClothSettingsPanel } from './cloth-settings.js?v=68';
+import { createClothSettingsPanel } from './cloth-settings.js?v=69';
 import { applyReceiptPerforation, buildReceiptAlphaMask } from './receipt-perforation.js?v=63';
 
 var MAX_DT = PAPER_PRESET.maxFrameDt;

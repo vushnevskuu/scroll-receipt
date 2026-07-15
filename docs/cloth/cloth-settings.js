@@ -1,6 +1,6 @@
 import { PAPER_PRESET } from './config.js';
 
-var STORAGE_KEY = 'receipt-cloth-preset-v4';
+var STORAGE_KEY = 'receipt-cloth-preset-v5';
 
 export function stiffnessToCompliance(stiffness) {
   var k = Math.max(0, Math.min(100, stiffness));
@@ -221,15 +221,15 @@ export function createClothSettingsPanel(options) {
       /* ignore */
     }
     var defaults = {
-      structuralCompliance: 0.000005,
-      shearCompliance: 0.00002,
-      bendCompliance: 0.00055,
-      damping: 0.085,
-      windStrength: 0.05,
-      grabStiffness: 0.55,
-      grabRadius: 2.1,
-      gravity: -22,
-      iterations: 12,
+      structuralCompliance: 0.000012,
+      shearCompliance: 0.00005,
+      bendCompliance: 0.0009,
+      damping: 0.045,
+      windStrength: 0.16,
+      grabStiffness: 0.5,
+      grabRadius: 2.2,
+      gravity: -20,
+      iterations: 10,
     };
     syncUIFromPreset(defaults);
     onChange(defaults);

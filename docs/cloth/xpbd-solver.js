@@ -2,12 +2,6 @@ import { PAPER_PRESET } from './config.js';
 
 var EPSILON = 1e-8;
 
-function dist2(ax, ay, bx, by) {
-  var dx = bx - ax;
-  var dy = by - ay;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
 export function createXPBDSolver(segW, segH, width, height) {
   var cols = segW + 1;
   var rows = segH + 1;
@@ -49,9 +43,21 @@ export function createXPBDSolver(segW, segH, width, height) {
 
   function addConstraint(i, j, compliance, kind) {
     if (i === j) return;
-    var restLen = dist2(pos[i * 3], pos[i * 3 + 1], pos[j * 3], pos[j * 3 + 1]);
+    var ix = i * 3;
+    var jx = j * 3;
+    var dx = pos[jx] - pos[ix];
+    var dy = pos[jx + 1] - pos[ix + 1];
+    var dz = pos[jx + 2] - pos[ix + 2];
+    var restLen = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (!Number.isFinite(restLen) || restLen < EPSILON) return;
-    constraints.push({ i: i, j: j, rest: restLen, compliance: compliance, kind: kind });
+    constraints.push({
+      i: i,
+      j: j,
+      rest: restLen,
+      compliance: compliance,
+      kind: kind,
+      lambda: 0,
+    });
   }
 
   function buildConstraints() {
@@ -203,11 +209,14 @@ export function createXPBDSolver(segW, segH, width, height) {
     var jx = j * 3;
     var ax = pos[ix];
     var ay = pos[ix + 1];
+    var az = pos[ix + 2];
     var bx = pos[jx];
     var by = pos[jx + 1];
+    var bz = pos[jx + 2];
     var dx = bx - ax;
     var dy = by - ay;
-    var len = Math.sqrt(dx * dx + dy * dy);
+    var dz = bz - az;
+    var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (len < EPSILON) return;
 
     var w1 = invMass[i];
@@ -215,23 +224,23 @@ export function createXPBDSolver(segW, segH, width, height) {
     var wSum = w1 + w2;
     if (wSum <= EPSILON) return;
 
-    var stretch = (len - c.rest) / len;
-    // Paper: preserve dimensions and transmit a pull across the whole sheet.
-    var stiffness =
-      c.kind === 0 ? 0.92 : c.kind === 1 ? 0.78 : c.kind === 2 ? 0.36 : 0.24;
-    var corr = stretch * stiffness;
-    var sx = dx * corr;
-    var sy = dy * corr;
-    var w1n = w1 / wSum;
-    var w2n = w2 / wSum;
+    var alpha = c.compliance / (dt * dt);
+    var constraintError = len - c.rest;
+    var deltaLambda = (-constraintError - alpha * c.lambda) / (wSum + alpha);
+    c.lambda += deltaLambda;
+    var nx = dx / len;
+    var ny = dy / len;
+    var nz = dz / len;
 
     if (w1 > 0) {
-      pos[ix] += sx * w1n;
-      pos[ix + 1] += sy * w1n;
+      pos[ix] -= deltaLambda * w1 * nx;
+      pos[ix + 1] -= deltaLambda * w1 * ny;
+      pos[ix + 2] -= deltaLambda * w1 * nz;
     }
     if (w2 > 0) {
-      pos[jx] -= sx * w2n;
-      pos[jx + 1] -= sy * w2n;
+      pos[jx] += deltaLambda * w2 * nx;
+      pos[jx + 1] += deltaLambda * w2 * ny;
+      pos[jx + 2] += deltaLambda * w2 * nz;
     }
   }
 
@@ -271,113 +280,73 @@ export function createXPBDSolver(segW, segH, width, height) {
         var w = t * t * (3 - 2 * t) * strength;
         var mx = (g.x - pos[i * 3]) * w;
         var my = (g.y - pos[i * 3 + 1]) * w;
-        var mlen = Math.sqrt(mx * mx + my * my);
+        var targetZ = Number.isFinite(g.z) ? g.z : pos[i * 3 + 2];
+        var mz = (targetZ - pos[i * 3 + 2]) * w;
+        var mlen = Math.sqrt(mx * mx + my * my + mz * mz);
         if (mlen > maxStep) {
           var s = maxStep / mlen;
           mx *= s;
           my *= s;
+          mz *= s;
         }
         pos[i * 3] += mx;
         pos[i * 3 + 1] += my;
+        pos[i * 3 + 2] += mz;
         prev[i * 3] = pos[i * 3] - mx * 0.08;
         prev[i * 3 + 1] = pos[i * 3 + 1] - my * 0.08;
+        prev[i * 3 + 2] = pos[i * 3 + 2] - mz * 0.08;
       }
     }
   }
 
-  function applyDepthPose() {
-    var feeding = feedProgress < 0.999;
-    var speed = PAPER_PRESET.flutterSpeed;
-    var wind = PAPER_PRESET.windStrength;
-    var force = PAPER_PRESET.flutterForce * wind * (feeding ? 0.15 : 0.42);
-    var phase = simTime * speed;
-
-    for (var iy = 0; iy < rows; iy++) {
-      var v = iy / segH;
-      var freeBias = Math.pow(1 - v, 1.7);
-      var bodyWave = Math.sin(phase + freeBias * 0.85) * force * freeBias;
-      for (var ix = 0; ix < cols; ix++) {
-        var i = idx(ix, iy);
-        var p = i * 3;
-
-        if (invMass[i] === 0) {
-          pos[p + 2] = rest[p + 2];
-          prev[p + 2] = pos[p + 2];
-          continue;
-        }
-
-        // Skip depth waves for paper still inside the printer.
-        if (feeding) {
-          var topY = height * 0.5;
-          if (topY - rest[p + 1] > height * feedProgress) {
-            pos[p + 2] += (0 - pos[p + 2]) * 0.35;
-            prev[p + 2] = pos[p + 2];
-            continue;
-          }
-        }
-
-        var u = ix / segW;
-        var edge = Math.abs(u - 0.5) * 2;
-        // Coherent cylindrical bow: no vertex-by-vertex fabric ripples.
-        var crossBow = edge * edge * freeBias * (2.2 + wind * 4);
-        var targetZ = rest[p + 2] + bodyWave + crossBow;
-
-        if (grab) {
-          var gx = ix - grab.cx;
-          var gy = iy - grab.cy;
-          var gd2 = gx * gx + gy * gy;
-          var gr = grab.radius != null ? grab.radius : PAPER_PRESET.grabRadius;
-          if (gd2 <= gr * gr) {
-            var gt = 1 - Math.sqrt(gd2) / gr;
-            targetZ += PAPER_PRESET.grabLift * (0.25 + gt * 0.5);
-          }
-        }
-
-        pos[p + 2] += (targetZ - pos[p + 2]) * (feeding ? 0.08 : 0.11);
-        prev[p + 2] = pos[p + 2];
-      }
-    }
+  function isVertexReleased(p) {
+    if (feedProgress >= 0.999) return true;
+    var topY = height * 0.5;
+    return topY - rest[p + 1] <= height * feedProgress;
   }
 
-  function applyWindSway() {
-    if (grab) return;
-    var wind = PAPER_PRESET.windStrength;
-    if (wind <= 0.001) return;
+  function applyAerodynamicForces(dt) {
+    if (grab || PAPER_PRESET.windStrength <= 0.001) return;
 
     var feeding = feedProgress < 0.999;
-    // A coherent pendulum-like sway: each row moves almost as one rigid strip.
-    var windScale = feeding ? 0.35 : 1;
-    wind *= windScale;
-    var basePhase = simTime * (0.38 + wind * 0.3);
-    var maxSwing = 4 + wind * 20;
-    var globalGust =
-      Math.sin(basePhase) * 0.78 + Math.sin(basePhase * 0.47 + 1.1) * 0.22;
+    var wind = PAPER_PRESET.windStrength * (feeding ? 0.38 : 1);
+    var phase = simTime * PAPER_PRESET.flutterSpeed;
+    var gust = Math.sin(phase) * 0.72 + Math.sin(phase * 0.43 + 1.15) * 0.28;
+    var lateralAcceleration = gust * PAPER_PRESET.flutterForce * wind * 12;
+    var depthAcceleration =
+      Math.sin(phase * 0.81 + 0.4) * PAPER_PRESET.flutterForce * wind * 18;
+    var dt2 = dt * dt;
 
     for (var iy = 0; iy < rows; iy++) {
-      var freeBias = 1 - iy / Math.max(1, rows - 1);
+      var freeBias = Math.pow(1 - iy / Math.max(1, rows - 1), 1.65);
       if (freeBias <= 0) continue;
-      var rowEase = Math.pow(freeBias, 1.8);
 
       for (var ix = 0; ix < cols; ix++) {
         var i = idx(ix, iy);
         if (invMass[i] <= 0) continue;
-
         var p = i * 3;
-        if (feeding) {
-          var topY = height * 0.5;
-          if (topY - rest[p + 1] > height * feedProgress) continue;
-        }
+        if (!isVertexReleased(p)) continue;
 
-        var u = ix / Math.max(1, segW);
-        var twist = (u - 0.5) * Math.sin(basePhase * 0.73) * wind * 1.6;
-        var swayX = (globalGust * maxSwing + twist) * rowEase;
-        var swayY = -Math.abs(globalGust) * wind * 1.1 * rowEase;
-        var targetX = rest[p] + swayX;
-        var targetY = rest[p + 1] + swayY;
-        var blend = 0.012 + rowEase * 0.012;
+        // External forces, not positional targets: XPBD decides the deformation.
+        pos[p] += lateralAcceleration * freeBias * dt2;
+        pos[p + 2] += depthAcceleration * freeBias * dt2;
+      }
+    }
+  }
 
-        pos[p] += (targetX - pos[p]) * blend;
-        pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;
+  function applyCurlMemory() {
+    if (grab || feedProgress < 0.999) return;
+
+    for (var iy = 0; iy < rows; iy++) {
+      var freeBias = Math.pow(1 - iy / Math.max(1, rows - 1), 1.8);
+      if (freeBias <= 0) continue;
+
+      for (var ix = 0; ix < cols; ix++) {
+        var i = idx(ix, iy);
+        if (invMass[i] <= 0) continue;
+        var p = i * 3;
+        // Weak residual curl from a paper roll; never overwrite velocity.
+        pos[p + 2] += (rest[p + 2] - pos[p + 2]) * 0.0018 * freeBias;
       }
     }
   }
@@ -478,6 +447,8 @@ export function createXPBDSolver(segW, segH, width, height) {
       pos[ix + 2] += vz;
     }
 
+    applyAerodynamicForces(dt);
+
     var inRelease = releaseCooldown > 0 || softRelease;
     var iterCount = inRelease ? Math.min(3, PAPER_PRESET.iterations) : PAPER_PRESET.iterations;
     if (releaseCooldown > 0) releaseCooldown--;
@@ -487,6 +458,9 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
 
     var sc = PAPER_PRESET.structuralCompliance;
+    for (var reset = 0; reset < constraints.length; reset++) {
+      constraints[reset].lambda = 0;
+    }
     for (var k = 0; k < iterCount; k++) {
       for (var c = 0; c < constraints.length; c++) {
         var cn = constraints[c];
@@ -501,7 +475,6 @@ export function createXPBDSolver(segW, segH, width, height) {
     applyPins();
     printerCollision(PAPER_PRESET.printerBarY);
     applyFeedTuck();
-    applyWindSway();
 
     if (!safetyGuards()) return;
 
@@ -509,7 +482,7 @@ export function createXPBDSolver(segW, segH, width, height) {
 
     if (!safetyGuards()) return;
 
-    applyDepthPose();
+    applyCurlMemory();
     applyFeedTuck();
 
     if (grab) {

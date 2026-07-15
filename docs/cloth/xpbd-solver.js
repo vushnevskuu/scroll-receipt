@@ -237,15 +237,18 @@ export function createXPBDSolver(segW, segH, width, height) {
 
   function applyPins() {
     if (!printerAttached) return;
+    var softPull = feedProgress < 0.999 ? 0.35 : 0.85;
+    var softSide = feedProgress < 0.999 ? 0.12 : 0.35;
     for (var i = 0; i < count; i++) {
       if (invMass[i] === 0) {
         pos[i * 3] = rest[i * 3];
         pos[i * 3 + 1] = rest[i * 3 + 1];
         pos[i * 3 + 2] = rest[i * 3 + 2];
       } else if (invMass[i] > 0 && invMass[i] < 0.2) {
-        pos[i * 3] += (rest[i * 3] - pos[i * 3]) * 0.35;
-        pos[i * 3 + 1] += (rest[i * 3 + 1] - pos[i * 3 + 1]) * 0.85;
-        pos[i * 3 + 2] += (rest[i * 3 + 2] - pos[i * 3 + 2]) * 0.7;
+        // Softer mouth pin while printing so the emerging strip can flutter.
+        pos[i * 3] += (rest[i * 3] - pos[i * 3]) * softSide;
+        pos[i * 3 + 1] += (rest[i * 3 + 1] - pos[i * 3 + 1]) * softPull;
+        pos[i * 3 + 2] += (rest[i * 3 + 2] - pos[i * 3 + 2]) * (feedProgress < 0.999 ? 0.25 : 0.7);
       }
     }
   }
@@ -291,6 +294,7 @@ export function createXPBDSolver(segW, segH, width, height) {
     var wind = PAPER_PRESET.windStrength;
     // Quiet air draft on paper edges — not fabric flutter.
     var force = PAPER_PRESET.flutterForce * (0.18 + wind * 0.55) * 0.012;
+    if (feedProgress < 0.999) force *= 1.7;
 
     for (var iy = 0; iy < rows; iy++) {
       var v = iy / segH;
@@ -339,11 +343,11 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (grab) return;
     var wind = PAPER_PRESET.windStrength;
     // Stronger sway while the sheet is still printing out.
-    if (feedProgress < 0.999) wind = Math.max(wind, 0.16) * 1.55;
+    if (feedProgress < 0.999) wind = Math.max(wind, 0.22) * 2.1;
     if (wind <= 0.001) return;
 
-    var basePhase = simTime * (0.35 + wind * 0.28);
-    var maxSwing = 1.6 + wind * 6;
+    var basePhase = simTime * (0.55 + wind * 0.4);
+    var maxSwing = 2.4 + wind * 10;
 
     for (var iy = 0; iy < rows; iy++) {
       var freeBias = 1 - iy / Math.max(1, rows - 1);
@@ -363,6 +367,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         var targetX = rest[p] + swayX;
         var targetY = rest[p + 1] + swayY;
         var blend = 0.008 + rowEase * (0.006 + wind * 0.008);
+        if (feedProgress < 0.999) blend *= 1.8;
 
         pos[p] += (targetX - pos[p]) * blend;
         pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;

@@ -1,4 +1,4 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=66';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=67';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 

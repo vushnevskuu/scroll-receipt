@@ -216,9 +216,9 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (wSum <= EPSILON) return;
 
     var stretch = (len - c.rest) / len;
-    // Paper: stiff stretch/shear, softer bend for natural hang.
+    // Paper: preserve dimensions and transmit a pull across the whole sheet.
     var stiffness =
-      c.kind === 0 ? 0.72 : c.kind === 1 ? 0.48 : c.kind === 2 ? 0.16 : 0.1;
+      c.kind === 0 ? 0.92 : c.kind === 1 ? 0.78 : c.kind === 2 ? 0.36 : 0.24;
     var corr = stretch * stiffness;
     var sx = dx * corr;
     var sy = dy * corr;
@@ -287,14 +287,15 @@ export function createXPBDSolver(segW, segH, width, height) {
 
   function applyDepthPose() {
     var feeding = feedProgress < 0.999;
-    var speed = PAPER_PRESET.flutterSpeed * (feeding ? 0.7 : 1);
-    var detail = PAPER_PRESET.flutterDetail;
+    var speed = PAPER_PRESET.flutterSpeed;
     var wind = PAPER_PRESET.windStrength;
-    var force = PAPER_PRESET.flutterForce * (0.28 + wind * 0.9) * (feeding ? 0.025 : 0.06);
+    var force = PAPER_PRESET.flutterForce * wind * (feeding ? 0.15 : 0.42);
+    var phase = simTime * speed;
 
     for (var iy = 0; iy < rows; iy++) {
       var v = iy / segH;
-      var freeBias = Math.pow(1 - v, 1.45);
+      var freeBias = Math.pow(1 - v, 1.7);
+      var bodyWave = Math.sin(phase + freeBias * 0.85) * force * freeBias;
       for (var ix = 0; ix < cols; ix++) {
         var i = idx(ix, iy);
         var p = i * 3;
@@ -317,11 +318,9 @@ export function createXPBDSolver(segW, segH, width, height) {
 
         var u = ix / segW;
         var edge = Math.abs(u - 0.5) * 2;
-        var wavePhase = simTime * speed + u * 2.8 + v * 1.8;
-        var wave = Math.sin(wavePhase) + Math.sin(wavePhase * (1.2 + detail) - edge * 1.6) * 0.28;
-        var liftBias = freeBias * (0.4 + edge * edge * 0.5);
-        var sagLift = Math.max(0, rest[p + 1] - pos[p + 1]) * 0.24;
-        var targetZ = rest[p + 2] + wave * force * liftBias + sagLift;
+        // Coherent cylindrical bow: no vertex-by-vertex fabric ripples.
+        var crossBow = edge * edge * freeBias * (2.2 + wind * 4);
+        var targetZ = rest[p + 2] + bodyWave + crossBow;
 
         if (grab) {
           var gx = ix - grab.cx;
@@ -334,7 +333,7 @@ export function createXPBDSolver(segW, segH, width, height) {
           }
         }
 
-        pos[p + 2] += (targetZ - pos[p + 2]) * (feeding ? 0.12 : 0.18);
+        pos[p + 2] += (targetZ - pos[p + 2]) * (feeding ? 0.08 : 0.11);
         prev[p + 2] = pos[p + 2];
       }
     }
@@ -346,16 +345,18 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (wind <= 0.001) return;
 
     var feeding = feedProgress < 0.999;
-    // Gentle during print, fuller idle sway after — paper, not silk.
-    var windScale = feeding ? 0.55 : 1;
+    // A coherent pendulum-like sway: each row moves almost as one rigid strip.
+    var windScale = feeding ? 0.35 : 1;
     wind *= windScale;
-    var basePhase = simTime * (0.45 + wind * 0.35);
-    var maxSwing = 3.5 + wind * 12;
+    var basePhase = simTime * (0.38 + wind * 0.3);
+    var maxSwing = 4 + wind * 20;
+    var globalGust =
+      Math.sin(basePhase) * 0.78 + Math.sin(basePhase * 0.47 + 1.1) * 0.22;
 
     for (var iy = 0; iy < rows; iy++) {
       var freeBias = 1 - iy / Math.max(1, rows - 1);
       if (freeBias <= 0) continue;
-      var rowEase = freeBias * freeBias * (3 - 2 * freeBias);
+      var rowEase = Math.pow(freeBias, 1.8);
 
       for (var ix = 0; ix < cols; ix++) {
         var i = idx(ix, iy);
@@ -368,13 +369,12 @@ export function createXPBDSolver(segW, segH, width, height) {
         }
 
         var u = ix / Math.max(1, segW);
-        var phase = basePhase + u * 1.5 + freeBias * 0.7;
-        var gust = Math.sin(phase) + Math.sin(phase * 0.42 - 0.6) * 0.28;
-        var swayX = gust * maxSwing * rowEase * (0.35 + Math.abs(u - 0.5) * 0.8);
-        var swayY = -Math.abs(Math.sin(phase * 0.5 + 0.45)) * wind * 1.2 * rowEase;
+        var twist = (u - 0.5) * Math.sin(basePhase * 0.73) * wind * 1.6;
+        var swayX = (globalGust * maxSwing + twist) * rowEase;
+        var swayY = -Math.abs(globalGust) * wind * 1.1 * rowEase;
         var targetX = rest[p] + swayX;
         var targetY = rest[p + 1] + swayY;
-        var blend = 0.014 + rowEase * (0.012 + wind * 0.014);
+        var blend = 0.012 + rowEase * 0.012;
 
         pos[p] += (targetX - pos[p]) * blend;
         pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;

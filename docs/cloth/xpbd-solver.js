@@ -354,6 +354,38 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
   }
 
+  function clampPaperShape() {
+    // Keep the sheet in the thin-shell regime. This prevents triangles from
+    // folding through each other and avoids texture interpolation artifacts.
+    var maxSideShift = Math.max(12, width * 0.055);
+    var maxDepthShift = Math.max(14, Math.min(22, width * 0.075));
+
+    for (var i = 0; i < count; i++) {
+      if (invMass[i] <= 0) continue;
+      var p = i * 3;
+      var minX = rest[p] - maxSideShift;
+      var maxX = rest[p] + maxSideShift;
+      var minZ = rest[p + 2] - maxDepthShift;
+      var maxZ = rest[p + 2] + maxDepthShift;
+
+      if (pos[p] < minX) {
+        pos[p] = minX;
+        prev[p] = minX;
+      } else if (pos[p] > maxX) {
+        pos[p] = maxX;
+        prev[p] = maxX;
+      }
+
+      if (pos[p + 2] < minZ) {
+        pos[p + 2] = minZ;
+        prev[p + 2] = minZ;
+      } else if (pos[p + 2] > maxZ) {
+        pos[p + 2] = maxZ;
+        prev[p + 2] = maxZ;
+      }
+    }
+  }
+
   function printerCollision(barY) {
     if (!printerAttached) return;
     for (var i = 0; i < count; i++) {
@@ -499,6 +531,7 @@ export function createXPBDSolver(segW, segH, width, height) {
 
     applyCurlMemory();
     applyFeedTuck();
+    clampPaperShape();
 
     if (grab) {
       for (var gi = 0; gi < count; gi++) {

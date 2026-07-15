@@ -30,6 +30,7 @@ export function createXPBDSolver(segW, segH, width, height) {
   var lastResetReason = '';
   var simTime = 0;
   var printerAttached = true;
+  var feedProgress = 1;
 
   function idx(ix, iy) {
     return iy * cols + ix;
@@ -337,6 +338,8 @@ export function createXPBDSolver(segW, segH, width, height) {
   function applyWindSway() {
     if (grab) return;
     var wind = PAPER_PRESET.windStrength;
+    // Stronger sway while the sheet is still printing out.
+    if (feedProgress < 0.999) wind = Math.max(wind, 0.16) * 1.55;
     if (wind <= 0.001) return;
 
     var basePhase = simTime * (0.35 + wind * 0.28);
@@ -376,6 +379,50 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
   }
 
+  /**
+   * Physically extrude paper from the printer mouth.
+   * Top (iy = rows-1) exits first; free edge (iy = 0) comes out last.
+   * Vertices still "inside" are tucked at the mouth so the hanging strip can sway.
+   */
+  function applyFeedTuck() {
+    if (!printerAttached || feedProgress >= 0.999) return;
+
+    var barY = PAPER_PRESET.printerBarY;
+    var threshold = 1 - feedProgress;
+    var band = 1.35 / Math.max(1, segH);
+
+    for (var iy = 0; iy < rows; iy++) {
+      var v = iy / Math.max(1, segH);
+      if (v >= threshold + band) continue;
+
+      var inside = v < threshold;
+      var blend = inside ? 1 : 1 - (v - threshold) / band;
+
+      for (var ix = 0; ix < cols; ix++) {
+        var i = idx(ix, iy);
+        if (invMass[i] <= 0) continue;
+
+        var p = i * 3;
+        var targetX = rest[p];
+        var targetY = Number.isFinite(barY) ? barY : rest[p + 1];
+        var targetZ = 0;
+
+        pos[p] += (targetX - pos[p]) * blend;
+        pos[p + 1] += (targetY - pos[p + 1]) * blend;
+        pos[p + 2] += (targetZ - pos[p + 2]) * blend;
+
+        if (inside) {
+          prev[p] = pos[p];
+          prev[p + 1] = pos[p + 1];
+          prev[p + 2] = pos[p + 2];
+        } else {
+          // Freshly printed band keeps a soft downward push for feed motion.
+          prev[p + 1] = pos[p + 1] + 0.35 * (1 - blend);
+        }
+      }
+    }
+  }
+
   function clampVelocities() {
     var maxV = PAPER_PRESET.maxVertexSpeed;
     for (var i = 0; i < count; i++) {
@@ -396,12 +443,13 @@ export function createXPBDSolver(segW, segH, width, height) {
   }
 
   function integrate(dt) {
+    var feeding = printerAttached && feedProgress < 0.999;
     var windActive = printerAttached && PAPER_PRESET.windStrength > 0.001;
-    if (sleeping && !grab && !windActive) return;
+    if (sleeping && !grab && !windActive && !feeding) return;
     if (!safetyGuards()) return;
 
-    var damp = 1 - PAPER_PRESET.damping;
-    var gy = PAPER_PRESET.gravity;
+    var damp = 1 - PAPER_PRESET.damping * (feeding ? 0.72 : 1);
+    var gy = PAPER_PRESET.gravity * (feeding ? 1.15 : 1);
     simTime += dt;
 
     for (var i = 0; i < count; i++) {
@@ -440,6 +488,7 @@ export function createXPBDSolver(segW, segH, width, height) {
     applyGrab();
     applyPins();
     printerCollision(PAPER_PRESET.printerBarY);
+    applyFeedTuck();
     applyWindSway();
 
     if (!safetyGuards()) return;
@@ -449,6 +498,7 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (!safetyGuards()) return;
 
     applyDepthPose();
+    applyFeedTuck();
 
     if (grab) {
       for (var gi = 0; gi < count; gi++) {
@@ -459,7 +509,7 @@ export function createXPBDSolver(segW, segH, width, height) {
       }
     }
 
-    if (!grab && !softRelease) {
+    if (!grab && !softRelease && !feeding) {
       var pull = PAPER_PRESET.shapeMemory * (printerAttached ? 1 : 0);
       for (var ri = 0; ri < count; ri++) {
         if (invMass[ri] <= 0) continue;
@@ -480,7 +530,8 @@ export function createXPBDSolver(segW, segH, width, height) {
       var vz2 = pos[px + 2] - prev[px + 2];
       energy += vx2 * vx2 + vy2 * vy2 + vz2 * vz2;
     }
-    sleeping = !grab && !softRelease && !windActive && energy < PAPER_PRESET.sleepThreshold;
+    sleeping =
+      !grab && !softRelease && !windActive && !feeding && energy < PAPER_PRESET.sleepThreshold;
   }
 
   function resetNaN() {
@@ -593,6 +644,13 @@ export function createXPBDSolver(segW, segH, width, height) {
     },
     setPrinterBar: function (y) {
       PAPER_PRESET.printerBarY = y;
+    },
+    setFeedProgress: function (progress) {
+      feedProgress = Math.max(0, Math.min(1, progress));
+      sleeping = false;
+    },
+    getFeedProgress: function () {
+      return feedProgress;
     },
     detachFromPrinter: function () {
       printerAttached = false;

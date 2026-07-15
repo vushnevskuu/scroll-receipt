@@ -729,7 +729,14 @@ body {
   }
 }
 
-.cloth-settings-toggle {
+/* Hidden in production. Only ?clothTune=1 (html.cloth-tune) shows the panel. */
+.cloth-settings-toggle,
+.cloth-settings-panel {
+  display: none !important;
+}
+
+html.cloth-tune .cloth-settings-toggle {
+  display: block !important;
   position: fixed;
   right: 12px;
   top: 12px;
@@ -743,11 +750,12 @@ body {
   cursor: pointer;
 }
 
-.cloth-settings-toggle:hover {
+html.cloth-tune .cloth-settings-toggle:hover {
   background: rgba(20, 20, 20, 0.92);
 }
 
-.cloth-settings-panel {
+html.cloth-tune .cloth-settings-panel {
+  display: block !important;
   position: fixed;
   right: 12px;
   top: 48px;
@@ -763,8 +771,8 @@ body {
   font: 11px/1.4 var(--font);
 }
 
-.cloth-settings-panel[hidden] {
-  display: none;
+html.cloth-tune .cloth-settings-panel[hidden] {
+  display: none !important;
 }
 
 .cloth-settings-title {

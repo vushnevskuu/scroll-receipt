@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=65';
-import { createXPBDSolver } from './xpbd-solver.js?v=65';
+import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=66';
+import { createXPBDSolver } from './xpbd-solver.js?v=66';
 import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=60';
-import { createClothSettingsPanel } from './cloth-settings.js?v=65';
+import { createClothSettingsPanel } from './cloth-settings.js?v=66';
 import { applyReceiptPerforation, buildReceiptAlphaMask } from './receipt-perforation.js?v=63';
 
 var MAX_DT = PAPER_PRESET.maxFrameDt;
@@ -856,7 +856,6 @@ export function createReceiptCloth(options) {
         height: rect.height,
       };
       revealProgress = 1;
-      updateRevealClip();
 
       var grid = gridForViewport();
       var cx = pxToWorldX(rect.left + rect.width * 0.5);
@@ -868,6 +867,8 @@ export function createReceiptCloth(options) {
       solver.initGrid(0, 0);
       var barLocal = pxToWorldY(rect.top) - cy;
       solver.setPrinterBar(barLocal);
+      solver.setFeedProgress(1);
+      updateRevealClip();
 
       var tex = new THREE.CanvasTexture(captured.canvas);
       var alphaCanvas = buildReceiptAlphaMask(captured.width, captured.height, perforation);
@@ -971,6 +972,11 @@ export function createReceiptCloth(options) {
 
     setRevealProgress: function (progress) {
       revealProgress = clamp(progress, 0, 1);
+      if (solver && solver.setFeedProgress) {
+        // Lead physics extrusion slightly ahead of the clip so the free edge sways.
+        var feed = revealProgress <= 0 ? 0.02 : Math.min(1, revealProgress * 1.04);
+        solver.setFeedProgress(feed);
+      }
       updateRevealClip();
     },
   };

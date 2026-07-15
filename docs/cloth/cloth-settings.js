@@ -39,6 +39,8 @@ export function createClothSettingsPanel(options) {
   var onChange = options.onChange || function () {};
   var startOpen = options.visible === true;
 
+  document.documentElement.classList.add('cloth-tune');
+
   var root = document.createElement('div');
   root.id = 'cloth-settings-panel';
   root.className = 'cloth-settings-panel';

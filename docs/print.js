@@ -1,4 +1,4 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=65';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=66';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 
@@ -88,16 +88,24 @@ function scheduleDomFeedComplete(scrollEl) {
   setTimeout(finishFeed, FEED_MS + 200);
 }
 
+function easeFeed(t) {
+  // Soft start out of the mouth, then a steady push with a gentle finish.
+  if (t < 0.2) return 0.55 * (t / 0.2) * (t / 0.2);
+  var u = (t - 0.2) / 0.8;
+  return 0.55 + 0.45 * (1 - Math.pow(1 - u, 1.55));
+}
+
 function animateClothFeed(scrollEl) {
   var startedAt = performance.now();
   canvas.style.pointerEvents = 'none';
 
   function frame(now) {
     if (!clothInstance) return;
-    var progress = Math.min(1, (now - startedAt) / FEED_MS);
+    var linear = Math.min(1, (now - startedAt) / FEED_MS);
+    var progress = easeFeed(linear);
     clothInstance.setRevealProgress(progress);
 
-    if (progress < 1) {
+    if (linear < 1) {
       requestAnimationFrame(frame);
       return;
     }
@@ -285,9 +293,27 @@ function wireReceipt(scrollEl) {
   }
 }
 
+function stripPhysicsSettingsUi() {
+  var allowTune = false;
+  try {
+    allowTune = new URLSearchParams(window.location.search).get('clothTune') === '1';
+  } catch (_e) {
+    allowTune = false;
+  }
+  if (allowTune) {
+    document.documentElement.classList.add('cloth-tune');
+    return;
+  }
+  document.documentElement.classList.remove('cloth-tune');
+  document.querySelectorAll('.cloth-settings-toggle, #cloth-settings-panel').forEach(function (el) {
+    el.remove();
+  });
+}
+
 async function boot() {
   if (!slot || !scroll) return;
 
+  stripPhysicsSettingsUi();
   await document.fonts.ready;
 
   updateDate(scroll);

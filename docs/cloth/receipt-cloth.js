@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=72';
-import { createXPBDSolver } from './xpbd-solver.js?v=72';
+import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=75';
+import { createXPBDSolver } from './xpbd-solver.js?v=75';
 import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=60';
-import { createClothSettingsPanel } from './cloth-settings.js?v=72';
+import { createClothSettingsPanel } from './cloth-settings.js?v=75';
 import { applyReceiptPerforation, buildReceiptAlphaMask } from './receipt-perforation.js?v=63';
 
 var MAX_DT = PAPER_PRESET.maxFrameDt;
@@ -376,8 +376,8 @@ export function createReceiptCloth(options) {
     hoverState.prevY = localY;
     hoverState.targetX = localX;
     hoverState.targetY = localY;
-    hoverState.targetZ = 8 + Math.max(0, 1 - Math.abs(hit.uv.x - 0.5) * 1.2) * 3.5;
-    hoverState.radius = Math.max(7, (PAPER_PRESET.grabRadius + 1.5) * 4.6);
+    hoverState.targetZ = 4.5 + Math.max(0, 1 - Math.abs(hit.uv.x - 0.5) * 1.2) * 2;
+    hoverState.radius = Math.max(3, PAPER_PRESET.grabRadius * 1.25);
     hoverState.cx = hoverGrid.ix;
     hoverState.cy = Math.min(hoverGrid.iy, solver.rows - 3);
     setCanvasInteractionState('hover');
@@ -386,7 +386,7 @@ export function createReceiptCloth(options) {
   function applyHoverField(dt) {
     if (!solver || grabPointerId !== null || detachedFromPrinter || releasedDetachedReceipt) return;
 
-    var easing = 1 - Math.exp(-dt * 12);
+    var easing = 1 - Math.exp(-dt * 20);
     hoverState.currentX += (hoverState.targetX - hoverState.currentX) * easing;
     hoverState.currentY += (hoverState.targetY - hoverState.currentY) * easing;
     hoverState.currentZ += (hoverState.targetZ - hoverState.currentZ) * easing;
@@ -405,11 +405,9 @@ export function createReceiptCloth(options) {
     var radius = hoverState.currentRadius;
     if (radius <= 0.08) return;
 
-    var hoverX = hoverState.currentX;
-    var hoverY = hoverState.currentY;
     var hoverZ = hoverState.currentZ;
-    var dragX = clamp(hoverState.currentStepX, -2.4, 2.4);
-    var dragY = clamp(hoverState.currentStepY, -2.4, 2.4);
+    var dragX = clamp(hoverState.currentStepX, -1.4, 1.4);
+    var dragY = clamp(hoverState.currentStepY, -1.4, 1.4);
     var influenceScale = Math.min(1, dt * 42);
     var minY = solver.rows - 2;
 
@@ -428,15 +426,18 @@ export function createReceiptCloth(options) {
         var falloff = Math.max(0, 1 - dist / radius);
         var pinch = falloff * falloff * (3 - 2 * falloff);
         var pi = vi * 3;
-        var targetZ = hoverZ * pinch;
+        var targetZ = solver.rest[pi + 2] + hoverZ * pinch;
+        var shiftX = dragX * pinch * 0.022 * influenceScale;
+        var shiftY = dragY * pinch * 0.022 * influenceScale;
+        var shiftZ = (targetZ - solver.pos[pi + 2]) * 0.11 * influenceScale;
 
-        solver.pos[pi] += (hoverX - solver.pos[pi]) * pinch * 0.015 * influenceScale + dragX * pinch * 0.045;
-        solver.pos[pi + 1] += (hoverY - solver.pos[pi + 1]) * pinch * 0.015 * influenceScale + dragY * pinch * 0.045;
-        solver.pos[pi + 2] += (targetZ - solver.pos[pi + 2]) * 0.16 * influenceScale;
-
-        solver.prev[pi] = solver.pos[pi] - dragX * pinch * 0.07;
-        solver.prev[pi + 1] = solver.pos[pi + 1] - dragY * pinch * 0.07;
-        solver.prev[pi + 2] = solver.pos[pi + 2] - targetZ * 0.015;
+        // Move pos and prev together: bounded hover shape, no injected velocity/creep.
+        solver.pos[pi] += shiftX;
+        solver.pos[pi + 1] += shiftY;
+        solver.pos[pi + 2] += shiftZ;
+        solver.prev[pi] += shiftX;
+        solver.prev[pi + 1] += shiftY;
+        solver.prev[pi + 2] += shiftZ;
       }
     }
 

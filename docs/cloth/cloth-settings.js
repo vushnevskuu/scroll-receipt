@@ -1,6 +1,6 @@
 import { PAPER_PRESET } from './config.js';
 
-var STORAGE_KEY = 'receipt-cloth-preset-v6';
+var STORAGE_KEY = 'receipt-cloth-preset-v7';
 
 export function stiffnessToCompliance(stiffness) {
   var k = Math.max(0, Math.min(100, stiffness));
@@ -224,7 +224,7 @@ export function createClothSettingsPanel(options) {
       structuralCompliance: 0.000004,
       shearCompliance: 0.000012,
       bendCompliance: 0.00045,
-      damping: 0.06,
+      damping: 0.045,
       windStrength: 0.16,
       grabStiffness: 0.62,
       grabRadius: 3.1,

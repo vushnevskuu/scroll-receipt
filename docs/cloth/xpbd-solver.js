@@ -65,8 +65,10 @@ export function createXPBDSolver(segW, segH, width, height) {
     var sc = PAPER_PRESET.structuralCompliance;
     var sh = PAPER_PRESET.shearCompliance;
     var bc = PAPER_PRESET.bendCompliance;
-    // Vertical bend softer than horizontal: receipt curls down the length.
-    var bcV = bc * 1.8;
+    // Thermal roll paper bends down its length but strongly resists rolling
+    // across its width into a tube.
+    var bcH = bc * 0.12;
+    var bcV = bc * 2.2;
 
     for (var iy = 0; iy < rows; iy++) {
       for (var ix = 0; ix < cols; ix++) {
@@ -75,7 +77,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         if (iy < segH) addConstraint(i, idx(ix, iy + 1), sc, 0);
         if (ix < segW && iy < segH) addConstraint(i, idx(ix + 1, iy + 1), sh, 1);
         if (ix > 0 && iy < segH) addConstraint(i, idx(ix - 1, iy + 1), sh, 1);
-        if (ix < segW - 1 && iy < segH) addConstraint(i, idx(ix + 2, iy), bc, 2);
+        if (ix < segW - 1 && iy < segH) addConstraint(i, idx(ix + 2, iy), bcH, 2);
         if (iy < segH - 1 && ix < cols) addConstraint(i, idx(ix, iy + 2), bcV, 3);
       }
     }
@@ -85,12 +87,13 @@ export function createXPBDSolver(segW, segH, width, height) {
     var sc = PAPER_PRESET.structuralCompliance;
     var sh = PAPER_PRESET.shearCompliance;
     var bc = PAPER_PRESET.bendCompliance;
-    var bcV = bc * 1.8;
+    var bcH = bc * 0.12;
+    var bcV = bc * 2.2;
     for (var c = 0; c < constraints.length; c++) {
       var cn = constraints[c];
       if (cn.kind === 0) cn.compliance = sc;
       else if (cn.kind === 1) cn.compliance = sh;
-      else if (cn.kind === 2) cn.compliance = bc;
+      else if (cn.kind === 2) cn.compliance = bcH;
       else if (cn.kind === 3) cn.compliance = bcV;
     }
   }
@@ -299,10 +302,10 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
   }
 
-  function isVertexReleased(p) {
+  function isParticleReleased(i) {
     if (feedProgress >= 0.999) return true;
-    var topY = height * 0.5;
-    return topY - rest[p + 1] <= height * feedProgress;
+    var iy = Math.floor(i / cols);
+    return iy / Math.max(1, segH) >= 1 - feedProgress;
   }
 
   function applyAerodynamicForces(dt) {
@@ -325,7 +328,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         var i = idx(ix, iy);
         if (invMass[i] <= 0) continue;
         var p = i * 3;
-        if (!isVertexReleased(p)) continue;
+        if (!isParticleReleased(i)) continue;
 
         // External forces, not positional targets: XPBD decides the deformation.
         pos[p] += lateralAcceleration * freeBias * dt2;
@@ -360,44 +363,42 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
   }
 
-  /**
-   * Smooth kinematic extrusion from the printer mouth.
-   * Top exits first; unreleased vertices sit at the mouth without velocity kicks.
-   */
+  /** Stable printer feed. Dynamic XPBD starts after the full sheet exits. */
   function applyFeedTuck() {
     if (!printerAttached || feedProgress >= 0.999) return;
 
     var barY = Number.isFinite(PAPER_PRESET.printerBarY) ? PAPER_PRESET.printerBarY : height * 0.5;
-    var topY = height * 0.5;
     var outLen = height * feedProgress;
     var band = height / Math.max(1, segH);
+    var phase = simTime * 1.8;
 
     for (var iy = 0; iy < rows; iy++) {
+      var distFromTop = (segH - iy) * (height / Math.max(1, segH));
+      var released = distFromTop <= outLen;
+      var emergence = Math.max(0, Math.min(1, (outLen - distFromTop) / (band * 1.25)));
+      var freeBias = distFromTop / Math.max(1, height);
+      var rowSway = Math.sin(phase) * 2.2 * freeBias * freeBias * emergence;
+      var rowDepth = Math.sin(phase * 0.83 + 0.5) * 1.4 * freeBias * emergence;
+
       for (var ix = 0; ix < cols; ix++) {
         var i = idx(ix, iy);
-        if (invMass[i] <= 0) continue;
-
         var p = i * 3;
-        var distFromTop = topY - rest[p + 1];
-        var released = distFromTop <= outLen;
-        var edge = (outLen - distFromTop) / band;
+        var targetX = rest[p];
+        var targetY = barY;
+        var targetZ = 0;
 
-        if (!released) {
-          pos[p] = rest[p];
-          pos[p + 1] = barY;
-          pos[p + 2] = 0;
-          prev[p] = pos[p];
-          prev[p + 1] = pos[p + 1];
-          prev[p + 2] = pos[p + 2];
-          continue;
+        if (released) {
+          targetX += rowSway;
+          targetY = barY - distFromTop;
+          targetZ = rest[p + 2] * (0.3 + emergence * 0.7) + rowDepth;
         }
 
-        // Only stabilize the frontier; released paper is free to hang/sway.
-        if (edge < 1.2) {
-          var hold = 0.28 * (1 - Math.min(1, edge / 1.2));
-          pos[p] += (rest[p] - pos[p]) * hold;
-          pos[p + 1] += (rest[p + 1] - pos[p + 1]) * hold * 0.25;
-        }
+        pos[p] = targetX;
+        pos[p + 1] = targetY;
+        pos[p + 2] = targetZ;
+        prev[p] = targetX;
+        prev[p + 1] = targetY;
+        prev[p + 2] = targetZ;
       }
     }
   }
@@ -428,10 +429,18 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (sleeping && !grab && !windActive && !feeding && !printerAttached) return;
     if (!safetyGuards()) return;
 
+    simTime += dt;
+    if (feeding) {
+      applyFeedTuck();
+      maxSpeed = 0;
+      maxPosMag = computeMaxPosMag();
+      sleeping = false;
+      return;
+    }
+
     var damp = 1 - PAPER_PRESET.damping * (feeding ? 1.1 : 1);
     if (damp < 0.88) damp = 0.88;
     var gy = PAPER_PRESET.gravity;
-    simTime += dt;
 
     for (var i = 0; i < count; i++) {
       if (invMass[i] <= 0) continue;
@@ -465,6 +474,12 @@ export function createXPBDSolver(segW, segH, width, height) {
       for (var c = 0; c < constraints.length; c++) {
         var cn = constraints[c];
         if (inRelease && cn.compliance > sc) continue;
+        if (
+          feeding &&
+          (!isParticleReleased(cn.i) || !isParticleReleased(cn.j))
+        ) {
+          continue;
+        }
         solveDistance(cn, dt);
       }
       applyPins();
@@ -635,7 +650,15 @@ export function createXPBDSolver(segW, segH, width, height) {
       PAPER_PRESET.printerBarY = y;
     },
     setFeedProgress: function (progress) {
+      var wasFeeding = feedProgress < 0.999;
       feedProgress = Math.max(0, Math.min(1, progress));
+      if (wasFeeding && feedProgress >= 0.999) {
+        // Start dynamics from the relaxed paper pose, not from a collapsed
+        // unreleased row at the printer mouth.
+        pos.set(rest);
+        prev.set(rest);
+        maxSpeed = 0;
+      }
       sleeping = false;
     },
     getFeedProgress: function () {

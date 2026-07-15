@@ -1,8 +1,8 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=72';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=75';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 
-var FEED_MS = 2600;
+var FEED_MS = 2100;
 var REPRINT_DELAY_MS = 2200;
 var DOWNLOAD_HREF = 'scroll-receipt-2.0.0-chrome.zip';
 var scrollTemplate = '';

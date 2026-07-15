@@ -1,4 +1,4 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=76';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=77';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 
@@ -13,6 +13,29 @@ var clothInstance = null;
 var slot = document.querySelector('.receipt-slot');
 var scroll = document.querySelector('.receipt-scroll');
 var canvas = document.querySelector('#receipt-canvas');
+var printerFeedSound = new Audio('./assets/printer-feed.mp3');
+printerFeedSound.preload = 'auto';
+printerFeedSound.loop = true;
+printerFeedSound.volume = 0.42;
+
+function startPrinterFeedSound() {
+  try {
+    printerFeedSound.currentTime = 0;
+    var playResult = printerFeedSound.play();
+    if (playResult) playResult.catch(function () {});
+  } catch (_e) {
+    /* Browser autoplay policy can block sound before user interaction. */
+  }
+}
+
+function stopPrinterFeedSound() {
+  try {
+    printerFeedSound.pause();
+    printerFeedSound.currentTime = 0;
+  } catch (_e) {
+    /* ignore */
+  }
+}
 
 function formatDate() {
   return new Date().toLocaleDateString('en-US', {
@@ -76,6 +99,7 @@ function measureFeedTargetRect(scrollEl) {
 function scheduleDomFeedComplete(scrollEl) {
   function finishFeed() {
     if (scrollEl.classList.contains('is-fed')) return;
+    stopPrinterFeedSound();
     void onFeedComplete(scrollEl);
   }
 
@@ -106,6 +130,7 @@ function animateClothFeed(scrollEl) {
     } catch (_e) {
       /* ignore */
     }
+    stopPrinterFeedSound();
     canvas.style.pointerEvents = 'auto';
     scrollEl.classList.add('is-fed');
     document.documentElement.classList.remove('printing');
@@ -211,6 +236,7 @@ function startFeed(scrollEl) {
   }
 
   document.documentElement.classList.add('printing');
+  startPrinterFeedSound();
 
   if (canUseImmediateCloth()) {
     void startClothFeed(scrollEl);
@@ -224,6 +250,7 @@ function startFeed(scrollEl) {
 }
 
 async function onFeedComplete(scrollEl) {
+  stopPrinterFeedSound();
   scrollEl.classList.remove('is-feeding');
   scrollEl.classList.add('is-fed');
   document.documentElement.classList.remove('printing');

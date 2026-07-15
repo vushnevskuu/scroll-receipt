@@ -290,7 +290,7 @@ export function createXPBDSolver(segW, segH, width, height) {
     var speed = PAPER_PRESET.flutterSpeed * (feeding ? 0.7 : 1);
     var detail = PAPER_PRESET.flutterDetail;
     var wind = PAPER_PRESET.windStrength;
-    var force = PAPER_PRESET.flutterForce * (0.2 + wind * 0.7) * (feeding ? 0.008 : 0.014);
+    var force = PAPER_PRESET.flutterForce * (0.28 + wind * 0.9) * (feeding ? 0.025 : 0.06);
 
     for (var iy = 0; iy < rows; iy++) {
       var v = iy / segH;
@@ -347,10 +347,10 @@ export function createXPBDSolver(segW, segH, width, height) {
 
     var feeding = feedProgress < 0.999;
     // Gentle during print, fuller idle sway after — paper, not silk.
-    var windScale = feeding ? 0.45 : 1;
+    var windScale = feeding ? 0.55 : 1;
     wind *= windScale;
-    var basePhase = simTime * (0.4 + wind * 0.3);
-    var maxSwing = 2.2 + wind * 8;
+    var basePhase = simTime * (0.45 + wind * 0.35);
+    var maxSwing = 3.5 + wind * 12;
 
     for (var iy = 0; iy < rows; iy++) {
       var freeBias = 1 - iy / Math.max(1, rows - 1);
@@ -374,7 +374,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         var swayY = -Math.abs(Math.sin(phase * 0.5 + 0.45)) * wind * 1.2 * rowEase;
         var targetX = rest[p] + swayX;
         var targetY = rest[p + 1] + swayY;
-        var blend = 0.01 + rowEase * (0.008 + wind * 0.01);
+        var blend = 0.014 + rowEase * (0.012 + wind * 0.014);
 
         pos[p] += (targetX - pos[p]) * blend;
         pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;

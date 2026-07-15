@@ -1,4 +1,4 @@
-import { createReceiptCloth } from './cloth/receipt-cloth.js?v=69';
+import { createReceiptCloth } from './cloth/receipt-cloth.js?v=70';
 import { applyReceiptPerforation } from './cloth/receipt-perforation.js?v=63';
 import { createReceiptSpring } from './receipt-spring.js?v=50';
 
@@ -95,26 +95,47 @@ function easeFeed(t) {
 
 function animateClothFeed(scrollEl) {
   var startedAt = performance.now();
+  var finished = false;
   canvas.style.pointerEvents = 'none';
 
-  function frame(now) {
-    if (!clothInstance) return;
-    var linear = Math.min(1, (now - startedAt) / FEED_MS);
-    var progress = easeFeed(linear);
-    clothInstance.setRevealProgress(progress);
-
-    if (linear < 1) {
-      requestAnimationFrame(frame);
-      return;
+  function finishFeed() {
+    if (finished) return;
+    finished = true;
+    try {
+      if (clothInstance) clothInstance.setRevealProgress(1);
+    } catch (_e) {
+      /* ignore */
     }
-
-    clothInstance.setRevealProgress(1);
     canvas.style.pointerEvents = 'auto';
     scrollEl.classList.add('is-fed');
     document.documentElement.classList.remove('printing');
   }
 
+  function frame(now) {
+    if (finished) return;
+    if (!clothInstance) {
+      finishFeed();
+      return;
+    }
+
+    try {
+      var linear = Math.min(1, (now - startedAt) / FEED_MS);
+      clothInstance.setRevealProgress(easeFeed(linear));
+      if (linear >= 1) {
+        finishFeed();
+        return;
+      }
+    } catch (_e) {
+      finishFeed();
+      return;
+    }
+
+    requestAnimationFrame(frame);
+  }
+
   requestAnimationFrame(frame);
+  // Hard fallback: never leave the page stuck in "printing" with a frozen clip.
+  window.setTimeout(finishFeed, FEED_MS + 500);
 }
 
 async function startClothFeed(scrollEl) {

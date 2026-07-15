@@ -1,6 +1,6 @@
 import { PAPER_PRESET } from './config.js';
 
-var STORAGE_KEY = 'receipt-cloth-preset-v2';
+var STORAGE_KEY = 'receipt-cloth-preset-v3';
 
 export function stiffnessToCompliance(stiffness) {
   var k = Math.max(0, Math.min(100, stiffness));
@@ -58,7 +58,7 @@ export function createClothSettingsPanel(options) {
 
   var note = document.createElement('p');
   note.className = 'cloth-settings-note';
-  note.textContent = 'Higher stiffness keeps the sheet crisper. More wind makes the idle sway stronger while the receipt hangs untouched.';
+  note.textContent = 'Paper preset: stiff stretch, soft curl. Lower wind for a quieter hang; raise bend stiffness if it feels too floppy.';
   root.appendChild(note);
 
   var fields = [
@@ -219,15 +219,15 @@ export function createClothSettingsPanel(options) {
       /* ignore */
     }
     var defaults = {
-      structuralCompliance: 0.00003,
-      shearCompliance: 0.00012,
-      bendCompliance: 0.00032,
-      damping: 0.03,
-      windStrength: 0.24,
-      grabStiffness: 0.42,
-      grabRadius: 2.5,
-      gravity: -12,
-      iterations: 8,
+      structuralCompliance: 0.000008,
+      shearCompliance: 0.000035,
+      bendCompliance: 0.0014,
+      damping: 0.065,
+      windStrength: 0.2,
+      grabStiffness: 0.58,
+      grabRadius: 2.1,
+      gravity: -28,
+      iterations: 10,
     };
     syncUIFromPreset(defaults);
     onChange(defaults);

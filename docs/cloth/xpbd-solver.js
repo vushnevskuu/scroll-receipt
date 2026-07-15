@@ -58,6 +58,8 @@ export function createXPBDSolver(segW, segH, width, height) {
     var sc = PAPER_PRESET.structuralCompliance;
     var sh = PAPER_PRESET.shearCompliance;
     var bc = PAPER_PRESET.bendCompliance;
+    // Vertical bend softer than horizontal: receipt curls down the length.
+    var bcV = bc * 1.8;
 
     for (var iy = 0; iy < rows; iy++) {
       for (var ix = 0; ix < cols; ix++) {
@@ -67,7 +69,7 @@ export function createXPBDSolver(segW, segH, width, height) {
         if (ix < segW && iy < segH) addConstraint(i, idx(ix + 1, iy + 1), sh, 1);
         if (ix > 0 && iy < segH) addConstraint(i, idx(ix - 1, iy + 1), sh, 1);
         if (ix < segW - 1 && iy < segH) addConstraint(i, idx(ix + 2, iy), bc, 2);
-        if (iy < segH - 1 && ix < cols) addConstraint(i, idx(ix, iy + 2), bc, 2);
+        if (iy < segH - 1 && ix < cols) addConstraint(i, idx(ix, iy + 2), bcV, 3);
       }
     }
   }
@@ -76,11 +78,13 @@ export function createXPBDSolver(segW, segH, width, height) {
     var sc = PAPER_PRESET.structuralCompliance;
     var sh = PAPER_PRESET.shearCompliance;
     var bc = PAPER_PRESET.bendCompliance;
+    var bcV = bc * 1.8;
     for (var c = 0; c < constraints.length; c++) {
       var cn = constraints[c];
       if (cn.kind === 0) cn.compliance = sc;
       else if (cn.kind === 1) cn.compliance = sh;
       else if (cn.kind === 2) cn.compliance = bc;
+      else if (cn.kind === 3) cn.compliance = bcV;
     }
   }
 
@@ -164,7 +168,9 @@ export function createXPBDSolver(segW, segH, width, height) {
         rest[i * 3] = pose.x;
         rest[i * 3 + 1] = pose.y;
         rest[i * 3 + 2] = pose.z;
-        invMass[i] = 1;
+        // Free edge slightly heavier so the sheet hangs like paper, not silk.
+        var freeBias = 1 - v;
+        invMass[i] = 1 / (1 + freeBias * 0.7);
         pinY[i] = pose.y;
       }
     }
@@ -209,7 +215,9 @@ export function createXPBDSolver(segW, segH, width, height) {
     if (wSum <= EPSILON) return;
 
     var stretch = (len - c.rest) / len;
-    var stiffness = c.kind === 0 ? 0.42 : c.kind === 1 ? 0.24 : 0.16;
+    // Paper: resist stretch/shear hard, allow lengthwise curl.
+    var stiffness =
+      c.kind === 0 ? 0.68 : c.kind === 1 ? 0.42 : c.kind === 2 ? 0.13 : 0.07;
     var corr = stretch * stiffness;
     var sx = dx * corr;
     var sy = dy * corr;
@@ -280,12 +288,12 @@ export function createXPBDSolver(segW, segH, width, height) {
     var speed = PAPER_PRESET.flutterSpeed;
     var detail = PAPER_PRESET.flutterDetail;
     var wind = PAPER_PRESET.windStrength;
-    var force = PAPER_PRESET.flutterForce * (0.35 + wind * 0.95) * 0.018;
+    // Quiet air draft on paper edges — not fabric flutter.
+    var force = PAPER_PRESET.flutterForce * (0.18 + wind * 0.55) * 0.012;
 
     for (var iy = 0; iy < rows; iy++) {
       var v = iy / segH;
-      var topBias = Math.pow(v, 1.35);
-      topBias = Math.pow(1 - v, 1.35);
+      var freeBias = Math.pow(1 - v, 1.55);
       for (var ix = 0; ix < cols; ix++) {
         var i = idx(ix, iy);
         var p = i * 3;
@@ -298,14 +306,16 @@ export function createXPBDSolver(segW, segH, width, height) {
 
         var u = ix / segW;
         var edge = Math.abs(u - 0.5) * 2;
-        var wavePhase = simTime * speed + u * 6.2 + v * 4.4;
-        var wave = Math.sin(wavePhase) + Math.sin(wavePhase * (1.7 + detail) - edge * 3.4) * 0.45;
-        var liftBias = topBias * (0.55 + edge * 0.45);
+        var wavePhase = simTime * speed + u * 3.1 + v * 2.2;
+        var wave = Math.sin(wavePhase) + Math.sin(wavePhase * (1.25 + detail) - edge * 2.1) * 0.28;
+        var liftBias = freeBias * (0.35 + edge * edge * 0.65);
         var vx = pos[p] - prev[p];
         var vy = pos[p + 1] - prev[p + 1];
-        var motionLift = Math.min(18, Math.sqrt(vx * vx + vy * vy) * 0.55);
-        var sagLift = Math.max(0, rest[p + 1] - pos[p + 1]) * 0.22;
-        var targetZ = rest[p + 2] + wave * force * liftBias + motionLift * (0.18 + topBias * 0.4) + sagLift;
+        var motionLift = Math.min(10, Math.sqrt(vx * vx + vy * vy) * 0.28);
+        // Sag deepens the natural paper curl when hanging.
+        var sagLift = Math.max(0, rest[p + 1] - pos[p + 1]) * 0.38;
+        var targetZ =
+          rest[p + 2] + wave * force * liftBias + motionLift * (0.08 + freeBias * 0.22) + sagLift;
 
         if (grab) {
           var gx = ix - grab.cx;
@@ -314,11 +324,11 @@ export function createXPBDSolver(segW, segH, width, height) {
           var gr = grab.radius != null ? grab.radius : PAPER_PRESET.grabRadius;
           if (gd2 <= gr * gr) {
             var gt = 1 - Math.sqrt(gd2) / gr;
-            targetZ += PAPER_PRESET.grabLift * (0.35 + gt * 0.65);
+            targetZ += PAPER_PRESET.grabLift * (0.25 + gt * 0.55);
           }
         }
 
-        pos[p + 2] += (targetZ - pos[p + 2]) * 0.22;
+        pos[p + 2] += (targetZ - pos[p + 2]) * 0.12;
         prev[p + 2] = pos[p + 2];
       }
     }
@@ -329,8 +339,8 @@ export function createXPBDSolver(segW, segH, width, height) {
     var wind = PAPER_PRESET.windStrength;
     if (wind <= 0.001) return;
 
-    var basePhase = simTime * (0.75 + wind * 0.5);
-    var maxSwing = 4 + wind * 14;
+    var basePhase = simTime * (0.35 + wind * 0.28);
+    var maxSwing = 1.6 + wind * 6;
 
     for (var iy = 0; iy < rows; iy++) {
       var freeBias = 1 - iy / Math.max(1, rows - 1);
@@ -343,16 +353,16 @@ export function createXPBDSolver(segW, segH, width, height) {
 
         var p = i * 3;
         var u = ix / Math.max(1, segW);
-        var phase = basePhase + u * 2.6 + freeBias * 1.2;
-        var gust = Math.sin(phase) + Math.sin(phase * 0.57 - 0.9) * 0.45;
-        var swayX = gust * maxSwing * rowEase * (0.5 + Math.abs(u - 0.5));
-        var swayY = -Math.abs(Math.sin(phase * 0.8 + 0.7)) * wind * 2.8 * rowEase;
+        var phase = basePhase + u * 1.6 + freeBias * 0.8;
+        var gust = Math.sin(phase) + Math.sin(phase * 0.41 - 0.7) * 0.3;
+        var swayX = gust * maxSwing * rowEase * (0.35 + Math.abs(u - 0.5) * 0.9);
+        var swayY = -Math.abs(Math.sin(phase * 0.55 + 0.5)) * wind * 1.4 * rowEase;
         var targetX = rest[p] + swayX;
         var targetY = rest[p + 1] + swayY;
-        var blend = 0.015 + rowEase * (0.012 + wind * 0.015);
+        var blend = 0.008 + rowEase * (0.006 + wind * 0.008);
 
         pos[p] += (targetX - pos[p]) * blend;
-        pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.82;
+        pos[p + 1] += (targetY - pos[p + 1]) * blend * 0.7;
       }
     }
   }
@@ -454,9 +464,10 @@ export function createXPBDSolver(segW, segH, width, height) {
       for (var ri = 0; ri < count; ri++) {
         if (invMass[ri] <= 0) continue;
         var rx = ri * 3;
-        pos[rx] += (rest[rx] - pos[rx]) * pull * 0.45;
-        pos[rx + 1] += (rest[rx + 1] - pos[rx + 1]) * pull;
-        pos[rx + 2] += (rest[rx + 2] - pos[rx + 2]) * pull * 1.35;
+        // Keep XY shape; leave Z curl mostly alone so paper keeps its roll.
+        pos[rx] += (rest[rx] - pos[rx]) * pull * 0.55;
+        pos[rx + 1] += (rest[rx + 1] - pos[rx + 1]) * pull * 0.85;
+        pos[rx + 2] += (rest[rx + 2] - pos[rx + 2]) * pull * 0.35;
       }
     }
 

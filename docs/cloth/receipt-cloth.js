@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=58';
-import { createXPBDSolver } from './xpbd-solver.js?v=50';
+import { PAPER_PRESET, gridForViewport, isDebugPhysics, isClothTune } from './config.js?v=65';
+import { createXPBDSolver } from './xpbd-solver.js?v=65';
 import { captureReceiptTexture, measureUvRegions, hitUvRegion } from './texture-capture.js?v=60';
-import { createClothSettingsPanel } from './cloth-settings.js?v=58';
+import { createClothSettingsPanel } from './cloth-settings.js?v=65';
 import { applyReceiptPerforation, buildReceiptAlphaMask } from './receipt-perforation.js?v=63';
 
 var MAX_DT = PAPER_PRESET.maxFrameDt;
@@ -899,11 +899,17 @@ export function createReceiptCloth(options) {
       canvas.classList.add('is-active');
       attachInteraction();
 
-      if (settingsPanel) settingsPanel.destroy();
-      settingsPanel = createClothSettingsPanel({
-        solver: solver,
-        visible: isClothTune(),
-      });
+      if (settingsPanel) {
+        settingsPanel.destroy();
+        settingsPanel = null;
+      }
+      // Production: no settings UI. Dev-only via ?clothTune=1
+      if (isClothTune()) {
+        settingsPanel = createClothSettingsPanel({
+          solver: solver,
+          visible: true,
+        });
+      }
 
       return true;
     },

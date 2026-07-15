@@ -1,6 +1,6 @@
 import { StrictMode, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { t } from '@scroll-receipt/shared';
+import { t } from '@scroll-receipt/shared/i18n';
 import { DailyReceipt, EmptyReceipt } from '@src/components/receipt/DailyReceipt';
 import { ReceiptDivider } from '@src/components/receipt/ReceiptDivider';
 import { ReceiptPaper } from '@src/components/receipt/ReceiptPaper';

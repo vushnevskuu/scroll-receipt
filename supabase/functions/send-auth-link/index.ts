@@ -5,12 +5,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const AUTH_WINDOW_MINUTES = 10;
+const AUTH_WINDOW_LIMIT = 3;
+const AUTH_DAILY_LIMIT = 8;
+const EMAIL_SUPPRESSED_ERROR =
+  'This email address is temporarily blocked because previous emails to it bounced or were marked as spam. Use another address or clear the suppression after fixing the inbox.';
+const AUTH_RATE_LIMIT_ERROR =
+  'Too many sign-in emails were requested for this address. Wait a few minutes before trying again.';
+
 type Locale = 'ru' | 'en';
+type AuthPurpose = 'sign-in' | 'delete-account';
 
 interface RequestBody {
   email?: string;
   locale?: Locale;
   redirectTo?: string;
+  purpose?: AuthPurpose;
+}
+
+interface ResendTag {
+  name: string;
+  value: string;
 }
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -20,8 +35,93 @@ function json(body: Record<string, unknown>, status = 200) {
   });
 }
 
+function getPublicAppUrl(): string {
+  return Deno.env.get('PUBLIC_APP_URL')?.trim() || 'https://scroll.outthere.day/';
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function assertEmailAllowed(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+) {
+  const { data, error } = await supabase
+    .from('email_suppressions')
+    .select('email')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.email) throw new Error(EMAIL_SUPPRESSED_ERROR);
+}
+
+async function countAttempts(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  sinceIso: string,
+) {
+  const { count, error } = await supabase
+    .from('email_send_attempts')
+    .select('*', { count: 'exact', head: true })
+    .eq('email', email)
+    .eq('flow', 'auth_link')
+    .in('status', ['sent', 'failed'])
+    .gte('created_at', sinceIso);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function assertWithinRateLimit(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+) {
+  const now = Date.now();
+  const recentAttempts = await countAttempts(
+    supabase,
+    email,
+    new Date(now - AUTH_WINDOW_MINUTES * 60_000).toISOString(),
+  );
+  if (recentAttempts >= AUTH_WINDOW_LIMIT) {
+    throw new Error(AUTH_RATE_LIMIT_ERROR);
+  }
+
+  const dailyAttempts = await countAttempts(
+    supabase,
+    email,
+    new Date(now - 24 * 60 * 60_000).toISOString(),
+  );
+  if (dailyAttempts >= AUTH_DAILY_LIMIT) {
+    throw new Error(AUTH_RATE_LIMIT_ERROR);
+  }
+}
+
+async function recordEmailAttempt(
+  supabase: ReturnType<typeof createClient>,
+  params: {
+    email: string;
+    status: 'sent' | 'failed' | 'blocked';
+    providerMessageId?: string | null;
+    error?: string | null;
+  },
+) {
+  const { error } = await supabase.from('email_send_attempts').insert({
+    email: params.email,
+    flow: 'auth_link',
+    status: params.status,
+    provider_message_id: params.providerMessageId ?? null,
+    error: params.error ?? null,
+  });
+
+  if (error) {
+    console.warn('Failed to record auth email attempt', error.message);
+  }
+}
+
 function getFallbackCallback(email: string): string {
-  const url = new URL('https://vushnevskuu.github.io/scroll-receipt/auth.html');
+  const url = new URL('auth.html', getPublicAppUrl());
   url.searchParams.set('email', email);
   return url.toString();
 }
@@ -46,22 +146,35 @@ function rewriteActionLink(actionLink: string, redirectTo: string): string {
   return url.toString();
 }
 
-function renderAuthEmail(email: string, otp: string, actionLink: string, locale: Locale) {
-  const subject =
-    locale === 'ru' ? 'Вход в Scroll Receipt' : 'Sign in to Scroll Receipt';
-  const preview =
-    locale === 'ru'
+function renderAuthEmail(
+  email: string,
+  otp: string,
+  actionLink: string,
+  locale: Locale,
+  purpose: AuthPurpose,
+) {
+  const isDeletion = purpose === 'delete-account';
+  const subject = isDeletion
+    ? 'Confirm Scroll Receipt account deletion'
+    : locale === 'ru'
+      ? 'Вход в Scroll Receipt'
+      : 'Sign in to Scroll Receipt';
+  const preview = isDeletion
+    ? 'Securely confirm deletion of your Scroll Receipt account and synced data.'
+    : locale === 'ru'
       ? 'Код и ссылка для входа в Scroll Receipt.'
       : 'Your sign-in code and link for Scroll Receipt.';
-  const heading = locale === 'ru' ? 'SCROLL RECEIPT SIGN-IN' : 'SCROLL RECEIPT SIGN-IN';
-  const intro =
-    locale === 'ru'
+  const heading = isDeletion ? 'ACCOUNT DELETION' : 'SCROLL RECEIPT SIGN-IN';
+  const intro = isDeletion
+    ? 'Open the secure link below to review and permanently delete your account. Ignore this email if you did not request deletion.'
+    : locale === 'ru'
       ? 'Используйте код ниже или кнопку, чтобы подтвердить email в расширении.'
-      : 'Use the code below or the button to verify your email in the extension.';
+      : 'Use the code below or the button to verify your email in the app or extension.';
   const codeLabel = locale === 'ru' ? 'CODE' : 'CODE';
-  const buttonLabel = locale === 'ru' ? 'OPEN SIGN-IN LINK' : 'OPEN SIGN-IN LINK';
-  const fallbackLabel =
-    locale === 'ru'
+  const buttonLabel = isDeletion ? 'REVIEW ACCOUNT DELETION' : 'OPEN SIGN-IN LINK';
+  const fallbackLabel = isDeletion
+    ? 'If the button does not open, use this secure link:'
+    : locale === 'ru'
       ? 'Если кнопка не открывается, вставьте эту ссылку в поле подтверждения:'
       : 'If the button does not open, paste this link into the verification field:';
 
@@ -106,7 +219,13 @@ function renderAuthEmail(email: string, otp: string, actionLink: string, locale:
   return { subject, html, text };
 }
 
-async function sendResendEmail(to: string, subject: string, html: string, text: string) {
+async function sendResendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  options?: { tags?: ResendTag[] },
+) {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
 
@@ -130,7 +249,14 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+      text,
+      tags: options?.tags,
+    }),
   });
 
   const responseText = await res.text();
@@ -155,10 +281,14 @@ Deno.serve(async (req) => {
     return json({ error: 'Method not allowed' }, 405);
   }
 
+  let requestEmail: string | null = null;
+
   try {
     const body = (await req.json()) as RequestBody;
-    const email = body.email?.trim().toLowerCase();
+    const email = body.email ? normalizeEmail(body.email) : undefined;
+    requestEmail = email ?? null;
     const locale: Locale = body.locale === 'ru' ? 'ru' : 'en';
+    const purpose: AuthPurpose = body.purpose === 'delete-account' ? 'delete-account' : 'sign-in';
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return json({ error: 'Valid email required' }, 400);
@@ -173,6 +303,9 @@ Deno.serve(async (req) => {
 
     const redirectTo = sanitizeRedirectTo(body.redirectTo, email);
     const supabase = createClient(supabaseUrl, serviceKey);
+    await assertEmailAllowed(supabase, email);
+    await assertWithinRateLimit(supabase, email);
+
     const generated = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email,
@@ -182,10 +315,15 @@ Deno.serve(async (req) => {
     });
 
     if (generated.error || !generated.data?.properties?.action_link || !generated.data.properties.email_otp) {
+      const generateErrorMessage = generated.error?.message ?? 'Could not generate the sign-in link';
+      await recordEmailAttempt(supabase, {
+        email,
+        status: 'failed',
+        error: generateErrorMessage,
+      });
       return json(
         {
-          error:
-            generated.error?.message ?? 'Could not generate the sign-in link',
+          error: generateErrorMessage,
         },
         400,
       );
@@ -193,8 +331,22 @@ Deno.serve(async (req) => {
 
     const actionLink = rewriteActionLink(generated.data.properties.action_link, redirectTo);
     const otp = generated.data.properties.email_otp;
-    const emailContent = renderAuthEmail(email, otp, actionLink, locale);
-    const message = await sendResendEmail(email, emailContent.subject, emailContent.html, emailContent.text);
+    const emailContent = renderAuthEmail(email, otp, actionLink, locale, purpose);
+    const message = await sendResendEmail(email, emailContent.subject, emailContent.html, emailContent.text, {
+      tags: [
+        { name: 'category', value: 'confirm_email' },
+        {
+          name: 'flow',
+          value: purpose === 'delete-account' ? 'account_deletion' : 'scroll_receipt_auth',
+        },
+      ],
+    });
+
+    await recordEmailAttempt(supabase, {
+      email,
+      status: 'sent',
+      providerMessageId: message.id,
+    });
 
     return json({
       ok: true,
@@ -203,6 +355,26 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
+
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+      if (requestEmail && supabaseUrl && serviceKey) {
+        const supabase = createClient(supabaseUrl, serviceKey);
+        await recordEmailAttempt(supabase, {
+          email: requestEmail,
+          status:
+            message === EMAIL_SUPPRESSED_ERROR || message === AUTH_RATE_LIMIT_ERROR
+              ? 'blocked'
+              : 'failed',
+          error: message,
+        });
+      }
+    } catch {
+      // Best-effort logging only.
+    }
+
     return json({ error: message }, 400);
   }
 });

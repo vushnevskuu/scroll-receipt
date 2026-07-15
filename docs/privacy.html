@@ -8,7 +8,7 @@
       name="description"
       content="Scroll Receipt privacy policy: local-first short-form video tracking. What we collect, what we never collect, and your controls."
     />
-    <link rel="canonical" href="https://vushnevskuu.github.io/scroll-receipt/privacy.html" />
+    <link rel="canonical" href="https://scroll.outthere.day/privacy.html" />
     <meta name="robots" content="index, follow" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,7 +27,7 @@
         <header class="receipt-head">
           <p class="receipt-meta">LEGAL RECEIPT</p>
           <h1 id="privacy-title">PRIVACY POLICY</h1>
-          <p class="receipt-sub">Scroll Receipt · Updated July 2026</p>
+          <p class="receipt-sub">Scroll Receipt · Updated July 10, 2026</p>
         </header>
 
         <hr class="rule rule-dotted" />
@@ -35,22 +35,26 @@
         <section class="block">
           <h2 class="section-label">PRINCIPLE</h2>
           <p class="copy">
-            Your activity stays on your device by default. Scroll Receipt measures active
-            short-form viewing on supported websites. It does not read messages, comments,
-            captions, searches, passwords, or unrelated browsing activity.
+            Scroll Receipt is local-first. The browser extension measures active short-form
+            viewing on supported websites. The Android app reads only foreground duration for the
+            official Instagram, YouTube, and TikTok apps through Android Usage Access.
           </p>
         </section>
 
         <hr class="rule rule-dotted" />
 
         <section class="block">
-          <h2 class="section-label">WHAT WE COLLECT</h2>
+          <h2 class="section-label">ON-DEVICE PROCESSING</h2>
           <ul class="benefits">
-            <li>Active viewing duration on YouTube Shorts, Instagram Reels, TikTok (browser)</li>
-            <li>Engagement metrics: viewed, engaged, completed, quick skips</li>
-            <li>Session timestamps and platform totals</li>
-            <li>User settings: platform toggles, equivalent rates, receipt time</li>
+            <li>Browser: active viewing duration, session totals, and engagement counters</li>
+            <li>Android: whole-app foreground duration for Instagram, YouTube, and TikTok</li>
+            <li>Settings such as hourly value, timezone, and receipt preferences</li>
+            <li>A random per-install ID used only to prevent duplicate daily sync records</li>
           </ul>
+          <p class="copy copy-note">
+            Android does not expose whether Reels or Shorts is open without more invasive
+            accessibility access. Scroll Receipt does not request an Accessibility Service.
+          </p>
         </section>
 
         <hr class="rule rule-dotted" />
@@ -58,11 +62,11 @@
         <section class="block">
           <h2 class="section-label">WHAT WE NEVER COLLECT</h2>
           <ul class="benefits">
-            <li>Messages, comments, captions, searches, typed text</li>
-            <li>Screenshots or screen recordings</li>
-            <li>Video downloads</li>
-            <li>Unrelated website activity</li>
-            <li>Raw page URLs (only hashed content identifiers locally)</li>
+            <li>Messages, comments, captions, searches, passwords, or typed text</li>
+            <li>Screenshots, screen recordings, microphone, camera, or precise location</li>
+            <li>Video contents, titles, downloads, or Android screen contents</li>
+            <li>An inventory of installed apps or advertising identifiers</li>
+            <li>Raw browser page URLs; local content identifiers are hashed</li>
           </ul>
         </section>
 
@@ -71,10 +75,10 @@
         <section class="block">
           <h2 class="section-label">STORAGE &amp; SYNC</h2>
           <p class="copy">
-            Data is stored in <code>chrome.storage.local</code> on your device. Optional email
-            sync sends only daily aggregate totals (seconds and view counts per platform) to our
-            backend — never video URLs or titles. No analytics SDKs or tracking pixels on the
-            landing page.
+            Local tracking needs no account. If you enable email receipts, sync sends only your
+            verified email, daily aggregate platform totals, local date, timezone, and a random
+            per-install ID. Supabase provides auth, storage, and server functions; Resend delivers
+            requested emails. HTTPS protects data in transit. Data is not sold or used for ads.
           </p>
         </section>
 
@@ -83,11 +87,20 @@
         <section class="block">
           <h2 class="section-label">YOUR CONTROLS</h2>
           <ul class="benefits">
-            <li>Pause tracking anytime</li>
-            <li>Disable individual platforms</li>
-            <li>Export data as JSON</li>
-            <li>Delete today's data or all data</li>
+            <li>Use local tracking without an account</li>
+            <li>Revoke Android Usage Access in system settings</li>
+            <li>Pause, export, or delete local browser data</li>
+            <li>Disconnect optional email receipts</li>
+            <li>
+              Permanently delete the account and synced data at
+              <a class="link-accent" href="delete-account.html">Delete Account</a>
+            </li>
           </ul>
+          <p class="copy copy-note">
+            Server deletion normally completes immediately. Local data can be removed separately
+            from each device. Hosting and email providers may temporarily process standard network
+            and security logs to operate and protect the service.
+          </p>
         </section>
 
         <hr class="rule rule-dotted" />

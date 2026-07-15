@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { t } from '@scroll-receipt/shared';
+import { t } from '@scroll-receipt/shared/i18n';
 import {
   pauseTracking,
   resumeTracking,

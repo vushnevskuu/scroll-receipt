@@ -1,32 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://vushnevskuu.github.io/scroll-receipt/</loc>
+    <loc>https://scroll.outthere.day/</loc>
     <lastmod>2026-07-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://vushnevskuu.github.io/scroll-receipt/about.html</loc>
+    <loc>https://scroll.outthere.day/about.html</loc>
     <lastmod>2026-07-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://vushnevskuu.github.io/scroll-receipt/install.html</loc>
+    <loc>https://scroll.outthere.day/install.html</loc>
     <lastmod>2026-07-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://vushnevskuu.github.io/scroll-receipt/faq.html</loc>
+    <loc>https://scroll.outthere.day/faq.html</loc>
     <lastmod>2026-07-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://vushnevskuu.github.io/scroll-receipt/privacy.html</loc>
-    <lastmod>2026-07-06</lastmod>
+    <loc>https://scroll.outthere.day/privacy.html</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://scroll.outthere.day/delete-account.html</loc>
+    <lastmod>2026-07-10</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>

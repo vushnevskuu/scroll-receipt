@@ -1,0 +1,27 @@
+Original prompt: смотри перфорация выглядит не как перфорация а как рисунок на чеке, а должны быть прям дыры! а также добавь легкое взаимодействие по хаверу на чеке, в настройках добавь подписи что за чито отвечает а тосейчас не понятно
+
+- Started this pass by checking the receipt CSS, the Three.js cloth renderer, the texture capture path, and the physics settings panel.
+- Current focus: make edge perforation read as punched holes in both the DOM receipt and the captured cloth texture, add a subtle hover response, and clarify every physics control with short labels and hints.
+- Added clearer labels and hints to the physics panel, plus a short note explaining the main sliders.
+- Reworked hover away from rigid whole-sheet motion into a broader, smoother local contact field so the paper reacts more like a touch zone than a hard point drag.
+- Stiffened the default material to feel more like receipt paper: stronger stretch/bend resistance, a bit more damping, weaker idle wind, and a slightly firmer grab.
+- Rotated the localStorage key for cloth tuning so old saved presets do not override the new paper defaults.
+- Verified syntax with `node --check` on the edited cloth files and re-ran `docs/cloth/xpbd-solver.test.mjs`.
+- Visual verification used headless system Chrome against `http://127.0.0.1:4173/`; the receipt now renders again after hover/material changes and the hover pass produces a wider, gentler bend.
+- Follow-up verification for the latest edge request: top perforation is removed, the bottom edge now renders as outward-facing half circles only, and both the DOM receipt and the Three.js cloth receipt preserve the same scalloped silhouette.
+- Tweaked bottom perforation spacing for the latest request by reducing the row to 10 semicircles; measured edge gaps are now about 17.8px for 16px circles, so another same-size circle can visually fit between them.
+- Flipped the bottom perforation geometry from outward scallops to real inward cut holes: the lower circles now subtract from the receipt silhouette in both the DOM clip-path and the Three.js alpha mask.
+- Removed the `PAID WITH / YOUR ATTENTION` footer line and tightened the remaining links upward so the bottom area stays clean.
+- Audited the install → track → sync → email path. Found and fixed several real delivery blockers:
+  - background sync no longer depends on opening the popup; it now syncs automatically from alarms/startup after email verification
+  - profile writes now use actual Supabase column names (`report_enabled`, `report_time_local`) instead of broken camelCase keys
+  - sync no longer silently resets a user's email receipt preferences on every upload
+  - daily receipts now respect the saved locale instead of always sending Russian
+  - Options now lets an unverified user finish OTP later and properly syncs the email receipt toggle to the backend
+- Added `apps/extension/.env.example`, updated setup docs, corrected all outdated `00:05` references to the current `18:00` local send time, and rebuilt `docs/scroll-receipt-2.0.0-chrome.zip`.
+- Verification for this pass:
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm zip`
+  - `pnpm test:e2e`

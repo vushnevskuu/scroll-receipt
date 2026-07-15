@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vushnevskuu.github.io/scroll-receipt/sitemap.xml
+Sitemap: https://scroll.outthere.day/sitemap.xml

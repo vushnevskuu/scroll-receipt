@@ -73,8 +73,8 @@ Daily receipt for your Reels & Shorts time
 
 ## Support URL
 
-https://vushnevskuu.github.io/scroll-receipt/
+https://scroll.outthere.day/
 
 ## Privacy policy URL
 
-https://vushnevskuu.github.io/scroll-receipt/privacy.html
+https://scroll.outthere.day/privacy.html

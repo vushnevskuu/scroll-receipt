@@ -1,4 +1,4 @@
-import { t, type Locale } from '@scroll-receipt/shared';
+import { t, type Locale } from '@scroll-receipt/shared/i18n';
 import { formatReceiptScheduleLabel, resolveReceiptSchedule } from '@src/lib/receipt-schedule';
 
 interface SetupFieldsProps {

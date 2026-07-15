@@ -11,7 +11,7 @@ export function isBackendConfigured(): boolean {
 }
 
 export function getPublicSiteUrl(): string {
-  return 'https://vushnevskuu.github.io/scroll-receipt/';
+  return import.meta.env.VITE_PUBLIC_SITE_URL ?? 'https://scroll.outthere.day/';
 }
 
 export function getAuthCallbackUrl(email?: string): string {

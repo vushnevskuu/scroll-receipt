@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     await supabase.from('profiles').upsert(
       {
         user_id: userId,
-        email: userData.user.email ?? '',
+        email: userData.user.email?.trim().toLowerCase() ?? '',
         timezone: body.records[0]?.timezone ?? 'UTC',
         report_time_local: existingProfile?.report_time_local ?? '18:00',
         report_enabled: existingProfile?.report_enabled ?? true,

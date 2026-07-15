@@ -1,8 +1,5 @@
-import {
-  getLocalTimezone,
-  SYNC_MIN_INTERVAL_MS,
-} from '@scroll-receipt/shared';
-import { usageSyncBatchSchema } from '@scroll-receipt/shared';
+import { getLocalTimezone } from '@scroll-receipt/shared/format';
+import { SYNC_MIN_INTERVAL_MS } from '@scroll-receipt/shared/types';
 import { getAuthenticatedSupabase } from '@src/lib/supabase';
 import { getOrCreateDeviceId } from '@src/lib/device-id';
 import { syncRecordsFromAggregate } from '@src/lib/sync-helpers';
@@ -16,6 +13,20 @@ interface SyncState {
   lastSyncAt: string | null;
   lastError: string | null;
   status: 'ok' | 'pending' | 'error' | 'offline';
+}
+
+interface UsageSyncRecord {
+  deviceId: string;
+  localDate: string;
+  timezone: string;
+  platform: 'instagram' | 'youtube' | 'tiktok';
+  seconds: number;
+  views: number;
+  clientUpdatedAt: string;
+}
+
+interface UsageSyncBatch {
+  records: UsageSyncRecord[];
 }
 
 export async function getSyncState(): Promise<SyncState> {
@@ -80,7 +91,7 @@ export async function syncDailyUsage(
       return syncState;
     }
 
-    const payload = usageSyncBatchSchema.parse({ records });
+    const payload: UsageSyncBatch = { records };
     const { data: session } = await supabase.auth.getSession();
     const token = session.session?.access_token;
     if (!token) throw new Error('No session');
@@ -147,7 +158,7 @@ export async function updateProfile(partial: {
 
   const payload: Record<string, string | boolean> = {
     user_id: user.user.id,
-    email: user.user.email ?? '',
+    email: user.user.email?.trim().toLowerCase() ?? '',
   };
 
   if (partial.timezone !== undefined) payload.timezone = partial.timezone;

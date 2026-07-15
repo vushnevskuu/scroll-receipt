@@ -24,7 +24,7 @@ Configured using [marketingskills](https://github.com/coreyhaines31/marketingski
 
 ## Next steps (manual)
 
-1. **Google Search Console** — add property `https://vushnevskuu.github.io/scroll-receipt/`, submit sitemap
+1. **Google Search Console** — add property `https://scroll.outthere.day/`, submit sitemap
 2. **Chrome Web Store** — publish using `STORE_LISTING.md` when ready
 3. **Analytics** — add Plausible/GA4 only if you want traffic metrics (not included by default for privacy)
 4. **Resend** — complete email backend (`docs/BACKEND_SETUP.md`) for receipt feature in marketing copy

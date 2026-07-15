@@ -153,7 +153,7 @@ export async function verifyOtp(email: string, token: string) {
   });
 }
 
-export async function sendTestReceipt(locale: 'ru' | 'en' = 'ru') {
+export async function sendTestReceipt(locale: 'ru' | 'en' = 'en') {
   return sendMessage<{ ok: boolean; error?: string }>({
     type: 'SEND_TEST_RECEIPT',
     payload: { locale },

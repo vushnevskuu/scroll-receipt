@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete Account — Scroll Receipt</title>
+    <meta
+      name="description"
+      content="Permanently delete your Scroll Receipt account and all synced usage data."
+    />
+    <link rel="canonical" href="https://scroll.outthere.day/delete-account.html" />
+    <meta name="robots" content="index, follow" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="stage stage-static" aria-labelledby="delete-title">
+      <article class="receipt">
+        <div class="receipt-edge receipt-edge-top" aria-hidden="true"></div>
+
+        <header class="receipt-head">
+          <p class="receipt-meta">PRIVACY CONTROL</p>
+          <h1 id="delete-title">DELETE ACCOUNT</h1>
+          <p class="receipt-sub">SCROLL RECEIPT</p>
+        </header>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block">
+          <h2 class="section-label">WHAT WILL BE DELETED</h2>
+          <ul class="benefits">
+            <li>Your verified email account</li>
+            <li>All synced daily platform totals and receipt delivery records</li>
+            <li>The random device IDs connected to your account</li>
+          </ul>
+          <p class="copy copy-note">
+            Local browser or Android data stays on your own device and can be removed from that
+            device separately. Deletion is permanent and normally completes immediately.
+          </p>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section id="request-panel" class="block">
+          <h2 class="section-label">1 / VERIFY YOUR EMAIL</h2>
+          <form id="delete-request-form" class="block-actions">
+            <label class="field">
+              <span class="field-label">ACCOUNT EMAIL</span>
+              <input
+                id="delete-email"
+                class="field-input"
+                type="email"
+                autocomplete="email"
+                maxlength="254"
+                required
+              />
+            </label>
+            <label class="check-line">
+              <input id="delete-request-check" type="checkbox" required />
+              <span>I am requesting permanent deletion of this Scroll Receipt account.</span>
+            </label>
+            <button id="delete-request-button" class="btn btn-primary btn-button" type="submit">
+              EMAIL SECURE DELETE LINK
+            </button>
+          </form>
+        </section>
+
+        <section id="confirm-panel" class="block" hidden>
+          <h2 class="section-label">2 / FINAL CONFIRMATION</h2>
+          <p class="copy">
+            Verified as <strong id="verified-email"></strong>. This cannot be undone.
+          </p>
+          <button id="delete-confirm-button" class="btn btn-danger btn-button" type="button">
+            DELETE ACCOUNT PERMANENTLY
+          </button>
+        </section>
+
+        <section id="complete-panel" class="block" hidden>
+          <h2 class="section-label">DELETION COMPLETE</h2>
+          <p class="copy">
+            Your Scroll Receipt account and associated server data have been deleted.
+          </p>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block">
+          <p class="line line-spread">
+            <span>STATUS</span>
+            <span id="delete-status" aria-live="polite">READY</span>
+          </p>
+          <p id="delete-message" class="receipt-tagline">
+            Enter your account email to receive a secure confirmation link.
+          </p>
+        </section>
+
+        <hr class="rule rule-dotted" />
+
+        <section class="block block-actions">
+          <a class="btn btn-ghost" href="privacy.html">Privacy policy</a>
+          <a class="btn btn-ghost" href="./">Return home</a>
+        </section>
+
+        <div class="receipt-edge receipt-edge-bottom" aria-hidden="true"></div>
+      </article>
+    </main>
+    <script type="module" src="delete-account.js"></script>
+  </body>
+</html>

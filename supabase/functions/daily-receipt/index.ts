@@ -7,6 +7,7 @@ import {
 } from './_shared/receipt.ts';
 
 const RECEIPT_SEND_WINDOW_MINUTES = 5;
+const CRON_SECRET_NAME = 'daily_receipt';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,40 @@ const corsHeaders = {
 };
 
 const PLATFORMS: Platform[] = ['instagram', 'youtube', 'tiktok'];
+
+interface ResendTag {
+  name: string;
+  value: string;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function sha256(value: string): Promise<string> {
+  return toHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
+}
+
+function timingSafeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    diff |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  }
+
+  return diff === 0;
+}
+
+function getPublicAppUrl(): string {
+  return Deno.env.get('PUBLIC_APP_URL')?.trim() || 'https://scroll.outthere.day/';
+}
 
 function isReportDueNow(timezone: string, reportTimeLocal: string, now = new Date()): boolean {
   const formatter = new Intl.DateTimeFormat('en-GB', {
@@ -36,7 +71,13 @@ function isReportDueNow(timezone: string, reportTimeLocal: string, now = new Dat
   );
 }
 
-async function sendResendEmail(to: string, subject: string, html: string, text: string) {
+async function sendResendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  options?: { tags?: ResendTag[]; idempotencyKey?: string },
+) {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   if (!apiKey) throw new Error('RESEND_API_KEY not configured');
 
@@ -54,10 +95,25 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
     );
   }
 
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (options?.idempotencyKey) {
+    headers['Idempotency-Key'] = options.idempotencyKey;
+  }
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    headers,
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+      text,
+      tags: options?.tags,
+    }),
   });
 
   const responseText = await res.text();
@@ -73,19 +129,69 @@ async function sendResendEmail(to: string, subject: string, html: string, text: 
   return JSON.parse(responseText) as { id: string };
 }
 
-function authorizeCron(req: Request): boolean {
-  const cronSecret = Deno.env.get('CRON_SECRET');
-  if (!cronSecret) return true;
-  return req.headers.get('x-cron-secret') === cronSecret;
+async function isSuppressedEmail(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+) {
+  const { data, error } = await supabase
+    .from('email_suppressions')
+    .select('email')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (error) throw error;
+  return Boolean(data?.email);
+}
+
+async function recordEmailAttempt(
+  supabase: ReturnType<typeof createClient>,
+  params: {
+    email: string;
+    userId: string;
+    status: 'sent' | 'failed' | 'blocked';
+    providerMessageId?: string | null;
+    error?: string | null;
+  },
+) {
+  const { error } = await supabase.from('email_send_attempts').insert({
+    email: params.email,
+    flow: 'daily_receipt',
+    user_id: params.userId,
+    status: params.status,
+    provider_message_id: params.providerMessageId ?? null,
+    error: params.error ?? null,
+  });
+
+  if (error) {
+    console.warn('Failed to record daily receipt attempt', error.message);
+  }
+}
+
+async function authorizeCron(
+  req: Request,
+  supabase: ReturnType<typeof createClient>,
+): Promise<boolean> {
+  const providedSecret = req.headers.get('x-cron-secret')?.trim();
+  if (!providedSecret) return false;
+
+  const { data, error } = await supabase
+    .from('cron_secrets')
+    .select('sha256')
+    .eq('name', CRON_SECRET_NAME)
+    .maybeSingle();
+
+  if (error || !data?.sha256) {
+    console.error('Missing cron secret hash', error?.message ?? 'no-row');
+    return false;
+  }
+
+  const providedHash = await sha256(providedSecret);
+  return timingSafeEqual(providedHash, data.sha256);
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
-  }
-
-  if (!authorizeCron(req)) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
   }
 
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -95,7 +201,11 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const manageUrl = 'https://vushnevskuu.github.io/scroll-receipt/';
+  if (!(await authorizeCron(req, supabase))) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
+  }
+
+  const manageUrl = getPublicAppUrl();
   const deleteUrl = manageUrl;
 
   const { data: profiles, error } = await supabase
@@ -113,6 +223,9 @@ Deno.serve(async (req) => {
     if (!isReportDueNow(profile.timezone, profile.report_time_local)) continue;
 
     const usageDate = getPreviousLocalDate(profile.timezone);
+    const recipientEmail = normalizeEmail(profile.email ?? '');
+    if (!recipientEmail) continue;
+
     const { data: existing } = await supabase
       .from('receipt_deliveries')
       .select('id, status, attempt_count')
@@ -121,6 +234,29 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing?.status === 'sent') continue;
+
+    if (await isSuppressedEmail(supabase, recipientEmail)) {
+      await supabase
+        .from('profiles')
+        .update({ report_enabled: false })
+        .eq('user_id', profile.user_id);
+
+      await supabase.from('receipt_deliveries').upsert({
+        user_id: profile.user_id,
+        usage_date: usageDate,
+        status: 'failed',
+        last_error: 'Recipient suppressed after a previous bounce or complaint.',
+        attempt_count: (existing?.attempt_count ?? 0) + 1,
+      });
+
+      await recordEmailAttempt(supabase, {
+        email: recipientEmail,
+        userId: profile.user_id,
+        status: 'blocked',
+        error: 'Recipient suppressed after a previous bounce or complaint.',
+      });
+      continue;
+    }
 
     const { data: rows } = await supabase
       .from('device_usage')
@@ -162,7 +298,13 @@ Deno.serve(async (req) => {
     );
 
     try {
-      const result = await sendResendEmail(profile.email, email.subject, email.html, email.text);
+      const result = await sendResendEmail(recipientEmail, email.subject, email.html, email.text, {
+        idempotencyKey: `daily-${profile.user_id}-${usageDate}`,
+        tags: [
+          { name: 'category', value: 'daily_receipt' },
+          { name: 'usage_date', value: usageDate.replace(/-/g, '') },
+        ],
+      });
       await supabase.from('receipt_deliveries').upsert({
         user_id: profile.user_id,
         usage_date: usageDate,
@@ -171,14 +313,27 @@ Deno.serve(async (req) => {
         sent_at: new Date().toISOString(),
         attempt_count: (existing?.attempt_count ?? 0) + 1,
       });
+      await recordEmailAttempt(supabase, {
+        email: recipientEmail,
+        userId: profile.user_id,
+        status: 'sent',
+        providerMessageId: result.id,
+      });
       sent += 1;
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown';
       await supabase.from('receipt_deliveries').upsert({
         user_id: profile.user_id,
         usage_date: usageDate,
         status: 'failed',
-        last_error: e instanceof Error ? e.message : 'Unknown',
+        last_error: errorMessage,
         attempt_count: (existing?.attempt_count ?? 0) + 1,
+      });
+      await recordEmailAttempt(supabase, {
+        email: recipientEmail,
+        userId: profile.user_id,
+        status: 'failed',
+        error: errorMessage,
       });
     }
   }

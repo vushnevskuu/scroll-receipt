@@ -1,0 +1,3 @@
+-keepattributes *Annotation*
+-keep class day.outthere.scrollreceipt.data.auth.AuthSession { *; }
+-keep class day.outthere.scrollreceipt.data.network.** { *; }

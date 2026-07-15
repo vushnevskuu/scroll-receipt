@@ -1,0 +1,7 @@
+# Copy to local.properties after installing the Android SDK.
+sdk.dir=/opt/homebrew/share/android-commandlinetools
+
+# Client-safe Supabase values. Never place a service-role key here.
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_replace_me
+PUBLIC_SITE_URL=https://scroll.outthere.day/

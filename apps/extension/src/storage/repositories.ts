@@ -10,7 +10,8 @@ import {
   RETENTION_DAYS_DEFAULT,
 } from '@src/utils/constants';
 import { generateDailySalt, generateId } from '@src/utils/hash';
-import { DEFAULT_DAILY_RECEIPT_TIME, getLocalTimezone } from '@scroll-receipt/shared';
+import { DEFAULT_DAILY_RECEIPT_TIME } from '@scroll-receipt/shared/constants';
+import { getLocalTimezone } from '@scroll-receipt/shared/format';
 import { getStorageItem, removeStorageItem, setStorageItem } from '@src/utils/storage';
 
 const KEYS = {

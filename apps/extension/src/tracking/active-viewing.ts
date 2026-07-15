@@ -1,6 +1,6 @@
 import type { PlatformAdapter, SupportedPlatform } from '@src/types';
 import { HEARTBEAT_INTERVAL_MS, VISIBILITY_THRESHOLD } from '@src/utils/constants';
-import { capDeltaSeconds } from '@scroll-receipt/shared';
+import { capDeltaSeconds } from '@scroll-receipt/shared/format';
 import { generateEventId } from '@src/utils/hash';
 import { sendMessage } from '@src/utils/messaging';
 

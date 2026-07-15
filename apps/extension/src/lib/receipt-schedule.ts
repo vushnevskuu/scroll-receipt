@@ -1,7 +1,5 @@
-import {
-  DEFAULT_DAILY_RECEIPT_TIME,
-  getLocalTimezone,
-} from '@scroll-receipt/shared';
+import { DEFAULT_DAILY_RECEIPT_TIME } from '@scroll-receipt/shared/constants';
+import { getLocalTimezone } from '@scroll-receipt/shared/format';
 import { updateProfile } from '@src/lib/sync';
 import { storageRepo } from '@src/storage/repositories';
 import type { TrackingSettings } from '@src/types';

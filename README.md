@@ -11,7 +11,7 @@ pnpm build
 
 Load unpacked in Chrome: `apps/extension/.output/chrome-mv3`
 
-**Landing + download:** https://vushnevskuu.github.io/scroll-receipt/
+**Landing + download:** https://scroll.outthere.day/
 
 The published zip already includes the backend URL needed for email sign-in and receipts.
 After install, local tracking starts in the browser right away. To receive daily email receipts,

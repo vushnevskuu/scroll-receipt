@@ -74,6 +74,17 @@ function isResendTestModeError(error?: string | null): boolean {
   );
 }
 
+function isSuppressedRecipientError(error?: string | null): boolean {
+  if (!error) return false;
+
+  const normalized = (getEmailProviderErrorText(error) ?? error).toLowerCase();
+  return (
+    normalized.includes('temporarily blocked because previous emails') ||
+    normalized.includes('marked as spam') ||
+    normalized.includes('suppression')
+  );
+}
+
 function formatKnownEmailSendError(
   error: string | undefined,
   locale: 'ru' | 'en',
@@ -92,6 +103,12 @@ function formatKnownEmailSendError(
     return locale === 'ru'
       ? 'Сервис отправки писем всё ещё в режиме теста Resend. Чтобы письма уходили всем пользователям, нужно в Resend подтвердить свой домен и указать RESEND_FROM на адресе этого домена, например Scroll Receipt <hello@mail.yourdomain.com>.'
       : 'Email delivery is still using Resend test mode. To send emails to all users, verify your domain in Resend and set RESEND_FROM to an address on that domain, for example Scroll Receipt <hello@mail.yourdomain.com>.';
+  }
+
+  if (isSuppressedRecipientError(error)) {
+    return locale === 'ru'
+      ? 'Этот email сейчас заблокирован для отправки, потому что прошлые письма на него вернулись или были помечены как спам. Укажите другой адрес или попросите администратора снять блокировку после исправления почтового ящика.'
+      : 'This email is currently blocked because previous messages to it bounced or were marked as spam. Use a different address or ask the admin to clear the suppression after the inbox issue is fixed.';
   }
 
   if (

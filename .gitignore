@@ -29,3 +29,4 @@ test-results/
 supabase/.temp/
 scripts/deploy-payload-*.json
 scripts/deploy-*-args.json
+.vercel

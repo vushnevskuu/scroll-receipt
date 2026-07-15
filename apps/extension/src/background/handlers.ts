@@ -19,7 +19,7 @@ import { getLocalDateString, getWeekRange } from '@src/utils/format';
 import { importSessionFromMagicLink, signInWithOtp, signOut, verifyOtp } from '@src/lib/supabase';
 import { getSyncState, sendTestReceipt, syncDailyUsage, updateProfile } from '@src/lib/sync';
 import { applyAutoReceiptSchedule } from '@src/lib/receipt-schedule';
-import { onMessage } from '@src/utils/messaging';
+import { onMessage } from '@src/utils/message-listener';
 
 async function buildTrackingStatus(): Promise<TrackingStatus> {
   const settings = await storageRepo.getSettings();

@@ -1,4 +1,4 @@
-import type { Platform } from '@scroll-receipt/shared';
+import type { Platform } from '@scroll-receipt/shared/types';
 import type { DailyAggregate } from '@src/types';
 
 export function syncRecordsFromAggregate(aggregate: Pick<DailyAggregate, 'date' | 'platformTotals' | 'platformViews'>) {

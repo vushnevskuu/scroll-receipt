@@ -305,7 +305,8 @@ export function createXPBDSolver(segW, segH, width, height) {
   function isParticleReleased(i) {
     if (feedProgress >= 0.999) return true;
     var iy = Math.floor(i / cols);
-    return iy / Math.max(1, segH) >= 1 - feedProgress;
+    // The free, perforated edge leaves the printer first.
+    return iy / Math.max(1, segH) <= feedProgress;
   }
 
   function applyAerodynamicForces(dt) {
@@ -395,7 +396,10 @@ export function createXPBDSolver(segW, segH, width, height) {
     }
   }
 
-  /** Stable printer feed. Dynamic XPBD starts after the full sheet exits. */
+  /**
+   * Stable printer feed. The perforated free edge (row 0) exits first, then
+   * the receipt moves down until its top reaches the printer mouth.
+   */
   function applyFeedTuck() {
     if (!printerAttached || feedProgress >= 0.999) return;
 
@@ -405,10 +409,10 @@ export function createXPBDSolver(segW, segH, width, height) {
     var phase = simTime * 1.8;
 
     for (var iy = 0; iy < rows; iy++) {
-      var distFromTop = (segH - iy) * (height / Math.max(1, segH));
-      var released = distFromTop <= outLen;
-      var emergence = Math.max(0, Math.min(1, (outLen - distFromTop) / (band * 1.25)));
-      var freeBias = distFromTop / Math.max(1, height);
+      var distFromBottom = iy * band;
+      var released = distFromBottom <= outLen;
+      var emergence = Math.max(0, Math.min(1, (outLen - distFromBottom) / (band * 1.25)));
+      var freeBias = Math.max(0, 1 - distFromBottom / Math.max(1, height));
       var rowSway = Math.sin(phase) * 2.2 * freeBias * freeBias * emergence;
       var rowDepth = Math.sin(phase * 0.83 + 0.5) * 1.4 * freeBias * emergence;
 
@@ -421,7 +425,7 @@ export function createXPBDSolver(segW, segH, width, height) {
 
         if (released) {
           targetX += rowSway;
-          targetY = barY - distFromTop;
+          targetY = barY - (outLen - distFromBottom);
           targetZ = rest[p + 2] * (0.3 + emergence * 0.7) + rowDepth;
         }
 
